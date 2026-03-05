@@ -1,0 +1,47 @@
+; CloseScale_ModularEA v1.001
+; Preset: LEGACY base (nao-hedge)
+; Notes:
+; - Modo de execucao: OM_EXEC_LEGACY
+; - Mantem o pipeline modular com estrategia/indicadores por ID
+
+InpModStrategyId=CloseScaleEffortMfiAuth
+InpModIndicatorsCsv=CloseScaleForecastFeed,EffortResultFirAuthFeed,MfiAuthFeed
+InpModAllowBuy=true
+InpModAllowSell=true
+InpModLots=0.10
+InpModMagic=5490003
+InpModDeviationPoints=20
+InpModCheckMode=1
+InpModCheckDelaySec=2
+InpModCheckHardFail=true
+
+InpOMOnePairLock=true
+InpOMOpenTwoLegs=true
+InpOMLeg1Fraction=0.50
+InpOMLeg2Fraction=0.50
+InpOMSlPolicyId=CloseScaleSL_Back1Level
+InpOMTpPolicyId=CloseScaleTP_NextLevelAndFinal
+InpOMTsPolicyId=CloseScaleTS_HalfLevel
+InpOMBePolicyId=NoneBE
+InpOMPendingPolicyId=NonePending
+InpOMRiskSubmodule=0
+InpOMTrailAtrPeriod=14
+InpOMTrailAtrMult=1.0
+InpOMHedgeSubmodule=0
+
+InpOMHedgeMaxBaskets=2
+InpOMHedgeTargetMoney=30.0
+InpOMHedgeStopMoney=45.0
+InpOMHedgeBiasStrongWeight=0.70
+InpOMHedgeStopLimitPullbackFrac=0.35
+
+InpVerifyDailyDDPct=8.0
+InpVerifyMinFreeMarginPct=40.0
+
+InpAuthUseEffort=true
+InpAuthUseMfi=true
+
+InpViewChart=true
+InpViewTerminal=true
+InpViewRefreshMs=250
+

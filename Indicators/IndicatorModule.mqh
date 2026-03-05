@@ -120,6 +120,32 @@ public:
       return(anyOk);
    }
 
+   int Count() const
+   {
+      return(ArraySize(m_plugins));
+   }
+
+   bool GetChartAttachMeta(const int idx,
+                           string &id,
+                           int &primaryHandle,
+                           string &hints[]) const
+   {
+      id = "";
+      primaryHandle = INVALID_HANDLE;
+      ArrayResize(hints, 0);
+
+      int n = ArraySize(m_plugins);
+      if(idx < 0 || idx >= n)
+         return(false);
+      if(m_plugins[idx] == NULL)
+         return(false);
+
+      id = (idx < ArraySize(m_ids) ? m_ids[idx] : "");
+      primaryHandle = m_plugins[idx].PrimaryHandle();
+      m_plugins[idx].ChartAttachHints(hints);
+      return(true);
+   }
+
    string LoadedIdsText() const
    {
       int n = ArraySize(m_ids);

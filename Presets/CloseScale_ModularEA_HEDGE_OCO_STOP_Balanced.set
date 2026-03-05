@@ -1,0 +1,48 @@
+; CloseScale_ModularEA v1.001
+; Preset: HEDGE OCO STOP (Balanced)
+; Notes:
+; - Modo de execucao: OM_EXEC_HEDGE_OCO_V1
+; - Familia de ordens: STOP
+; - Usa apenas inputs do EA (nao carrega inputs de indicador)
+
+InpModStrategyId=CloseScaleEffortMfiAuth
+InpModIndicatorsCsv=CloseScaleForecastFeed,EffortResultFirAuthFeed,MfiAuthFeed
+InpModAllowBuy=true
+InpModAllowSell=true
+InpModLots=0.10
+InpModMagic=5490001
+InpModDeviationPoints=20
+InpModCheckMode=1
+InpModCheckDelaySec=2
+InpModCheckHardFail=true
+
+InpOMOnePairLock=false
+InpOMOpenTwoLegs=true
+InpOMLeg1Fraction=0.50
+InpOMLeg2Fraction=0.50
+InpOMSlPolicyId=CloseScaleSL_Back1Level
+InpOMTpPolicyId=CloseScaleTP_NextLevelAndFinal
+InpOMTsPolicyId=CloseScaleTS_HalfLevel
+InpOMBePolicyId=NoneBE
+InpOMPendingPolicyId=NonePending
+InpOMRiskSubmodule=0
+InpOMTrailAtrPeriod=14
+InpOMTrailAtrMult=1.0
+InpOMHedgeSubmodule=1
+
+InpOMHedgeMaxBaskets=1
+InpOMHedgeTargetMoney=20.0
+InpOMHedgeStopMoney=30.0
+InpOMHedgeBiasStrongWeight=0.70
+InpOMHedgeStopLimitPullbackFrac=0.35
+
+InpVerifyDailyDDPct=8.0
+InpVerifyMinFreeMarginPct=45.0
+
+InpAuthUseEffort=true
+InpAuthUseMfi=true
+
+InpViewChart=true
+InpViewTerminal=true
+InpViewRefreshMs=250
+

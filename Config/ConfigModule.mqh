@@ -2,6 +2,7 @@
 #define __CSM_CONFIG_MODULE_MQH__
 
 #include "ConfigEnums.mqh"
+#include "..\\Contracts\\CoreTypes.mqh"
 
 class CConfigModule
 {
@@ -17,39 +18,43 @@ public:
    int moduleCheckMode;
    int moduleCheckDelaySec;
    bool moduleCheckHardFail;
-
-   int slSlot1;
-   int slSlot2;
-   int slSlot3;
-   int slFixedPoints;
-   int slAtrPeriod;
-   double slAtrMult;
-
-   int tpSlot1;
-   int tpSlot2;
-   int tpSlot3;
-   int tpFixedPoints;
-   double tpRR;
-
-   int tsSlot1;
-   int tsSlot2;
-   int tsSlot3;
-   int tsStartPoints;
-   int tsDistancePoints;
-
-   int beSlot1;
-   int beSlot2;
-   int beSlot3;
-   int beTriggerPoints;
-   int beOffsetPoints;
-
-   int pendingSlot1;
-   int pendingSlot2;
-   int pendingSlot3;
+   bool onePairLock;
+   bool omOpenTwoLegs;
+   double omLeg1Fraction;
+   double omLeg2Fraction;
+   string omSlPolicyId;
+   string omTpPolicyId;
+   string omTsPolicyId;
+   string omBePolicyId;
+   string omPendingPolicyId;
+   string omRiskPolicyId;
+   int omTrailAtrPeriod;
+   double omTrailAtrMult;
+   double riskCountertrendScale;
+   int omExecMode;
+   int omHedgeOcoOrderFamily;
+   int omHedgeMaxBaskets;
+   double omHedgeTargetMoney;
+   double omHedgeStopMoney;
+   double omHedgeBiasStrongWeight;
+   double omHedgeStopLimitPullbackFrac;
+   double verifyDailyDdPct;
+   double verifyMinFreeMarginPct;
+   bool authUseEffort;
+   bool authUseMfi;
 
    bool viewChart;
    bool viewTerminal;
    int viewRefreshMs;
+   bool viewAttachIndicators;
+   bool viewAttachSubwindow1;
+   bool viewAttachSubwindow2;
+   bool viewAttachSubwindow3;
+   bool viewAttachSubwindow4;
+   bool viewAttachSubwindow5;
+   bool viewAttachSubwindow6;
+   bool viewAttachSubwindow7;
+   bool viewAttachSubwindow8;
 
    void Clear()
    {
@@ -63,39 +68,43 @@ public:
       moduleCheckMode = MODULE_CHECK_ON_INIT;
       moduleCheckDelaySec = 2;
       moduleCheckHardFail = true;
-
-      slSlot1 = SL_SLOT_NONE;
-      slSlot2 = SL_SLOT_NONE;
-      slSlot3 = SL_SLOT_NONE;
-      slFixedPoints = 200;
-      slAtrPeriod = 14;
-      slAtrMult = 1.2;
-
-      tpSlot1 = TP_SLOT_NONE;
-      tpSlot2 = TP_SLOT_NONE;
-      tpSlot3 = TP_SLOT_NONE;
-      tpFixedPoints = 300;
-      tpRR = 2.0;
-
-      tsSlot1 = TS_SLOT_NONE;
-      tsSlot2 = TS_SLOT_NONE;
-      tsSlot3 = TS_SLOT_NONE;
-      tsStartPoints = 150;
-      tsDistancePoints = 120;
-
-      beSlot1 = BE_SLOT_NONE;
-      beSlot2 = BE_SLOT_NONE;
-      beSlot3 = BE_SLOT_NONE;
-      beTriggerPoints = 120;
-      beOffsetPoints = 10;
-
-      pendingSlot1 = PENDING_SLOT_NONE;
-      pendingSlot2 = PENDING_SLOT_NONE;
-      pendingSlot3 = PENDING_SLOT_NONE;
+      onePairLock = false;
+      omOpenTwoLegs = true;
+      omLeg1Fraction = 0.5;
+      omLeg2Fraction = 0.5;
+      omSlPolicyId = "CloseScaleSL_Back1Level";
+      omTpPolicyId = "CloseScaleTP_NextLevelAndFinal";
+      omTsPolicyId = "CloseScaleTS_HalfLevel";
+      omBePolicyId = "NoneBE";
+      omPendingPolicyId = "NonePending";
+      omRiskPolicyId = "DefaultRisk";
+      omTrailAtrPeriod = 14;
+      omTrailAtrMult = 1.0;
+      riskCountertrendScale = 0.35;
+      omExecMode = OM_EXEC_LEGACY;
+      omHedgeOcoOrderFamily = HEDGE_OCO_FAMILY_STOP_LIMIT;
+      omHedgeMaxBaskets = 2;
+      omHedgeTargetMoney = 30.0;
+      omHedgeStopMoney = 45.0;
+      omHedgeBiasStrongWeight = 0.70;
+      omHedgeStopLimitPullbackFrac = 0.35;
+      verifyDailyDdPct = 2.0;
+      verifyMinFreeMarginPct = 35.0;
+      authUseEffort = false;
+      authUseMfi = false;
 
       viewChart = true;
       viewTerminal = true;
       viewRefreshMs = 250;
+      viewAttachIndicators = true;
+      viewAttachSubwindow1 = true;
+      viewAttachSubwindow2 = true;
+      viewAttachSubwindow3 = true;
+      viewAttachSubwindow4 = true;
+      viewAttachSubwindow5 = true;
+      viewAttachSubwindow6 = true;
+      viewAttachSubwindow7 = true;
+      viewAttachSubwindow8 = true;
    }
 
    void ParseCsv(const string csv, string &out[])
@@ -156,39 +165,48 @@ public:
       moduleCheckMode = (int)InpModCheckMode;
       moduleCheckDelaySec = InpModCheckDelaySec;
       moduleCheckHardFail = InpModCheckHardFail;
-
-      slSlot1 = (int)InpSLSlot1;
-      slSlot2 = (int)InpSLSlot2;
-      slSlot3 = (int)InpSLSlot3;
-      slFixedPoints = InpSLFixedPoints;
-      slAtrPeriod = InpSLAtrPeriod;
-      slAtrMult = InpSLAtrMult;
-
-      tpSlot1 = (int)InpTPSlot1;
-      tpSlot2 = (int)InpTPSlot2;
-      tpSlot3 = (int)InpTPSlot3;
-      tpFixedPoints = InpTPFixedPoints;
-      tpRR = InpTPRR;
-
-      tsSlot1 = (int)InpTSSlot1;
-      tsSlot2 = (int)InpTSSlot2;
-      tsSlot3 = (int)InpTSSlot3;
-      tsStartPoints = InpTSStartPoints;
-      tsDistancePoints = InpTSDistancePoints;
-
-      beSlot1 = (int)InpBESlot1;
-      beSlot2 = (int)InpBESlot2;
-      beSlot3 = (int)InpBESlot3;
-      beTriggerPoints = InpBETriggerPoints;
-      beOffsetPoints = InpBEOffsetPoints;
-
-      pendingSlot1 = (int)InpPendingSlot1;
-      pendingSlot2 = (int)InpPendingSlot2;
-      pendingSlot3 = (int)InpPendingSlot3;
+      onePairLock = InpOMOnePairLock;
+      omOpenTwoLegs = InpOMOpenTwoLegs;
+      omLeg1Fraction = InpOMLeg1Fraction;
+      omLeg2Fraction = InpOMLeg2Fraction;
+      omSlPolicyId = InpOMSlPolicyId;
+      omTpPolicyId = InpOMTpPolicyId;
+      omTsPolicyId = InpOMTsPolicyId;
+      omBePolicyId = InpOMBePolicyId;
+      omPendingPolicyId = InpOMPendingPolicyId;
+      if(InpOMRiskSubmodule == RISK_SUBMODULE_DEFAULT)
+         omRiskPolicyId = "DefaultRisk";
+      else if(InpOMRiskSubmodule == RISK_SUBMODULE_CLOSESCALE_COUNTERTREND_ABOVE_ZERO)
+         omRiskPolicyId = "CloseScaleRisk_CountertrendAboveZero";
+      else
+         omRiskPolicyId = "";
+      omTrailAtrPeriod = InpOMTrailAtrPeriod;
+      omTrailAtrMult = InpOMTrailAtrMult;
+      riskCountertrendScale = InpRiskCountertrendScale;
+      omExecMode = (InpOMHedgeSubmodule == MODULE_ENABLED ? OM_EXEC_HEDGE_OCO_V1 : OM_EXEC_LEGACY);
+      omHedgeOcoOrderFamily = (int)InpOMHedgeOcoOrderFamily;
+      omHedgeMaxBaskets = InpOMHedgeMaxBaskets;
+      omHedgeTargetMoney = InpOMHedgeTargetMoney;
+      omHedgeStopMoney = InpOMHedgeStopMoney;
+      omHedgeBiasStrongWeight = InpOMHedgeBiasStrongWeight;
+      omHedgeStopLimitPullbackFrac = InpOMHedgeStopLimitPullbackFrac;
+      verifyDailyDdPct = InpVerifyDailyDDPct;
+      verifyMinFreeMarginPct = InpVerifyMinFreeMarginPct;
+      authUseEffort = InpAuthUseEffort;
+      authUseMfi = InpAuthUseMfi;
 
       viewChart = InpViewChart;
       viewTerminal = InpViewTerminal;
       viewRefreshMs = InpViewRefreshMs;
+      viewAttachIndicators = InpViewAttachIndicators;
+      viewAttachSubwindow1 = InpViewAttachSubwindow1;
+      viewAttachSubwindow2 = InpViewAttachSubwindow2;
+      viewAttachSubwindow3 = InpViewAttachSubwindow3;
+      viewAttachSubwindow4 = InpViewAttachSubwindow4;
+      viewAttachSubwindow5 = InpViewAttachSubwindow5;
+      viewAttachSubwindow6 = InpViewAttachSubwindow6;
+      viewAttachSubwindow7 = InpViewAttachSubwindow7;
+      viewAttachSubwindow8 = InpViewAttachSubwindow8;
 
       ParseCsv(InpModIndicatorsCsv, indicatorIds);
 
@@ -212,7 +230,108 @@ public:
          err = "InpModCheckDelaySec invalido";
          return(false);
       }
+      if(omLeg1Fraction < 0.0 || omLeg2Fraction < 0.0)
+      {
+         err = "InpOMLeg1Fraction/InpOMLeg2Fraction invalidos";
+         return(false);
+      }
+      if(omOpenTwoLegs)
+      {
+         if((omLeg1Fraction + omLeg2Fraction) <= 0.0)
+         {
+            err = "soma de fracoes das pernas deve ser > 0";
+            return(false);
+         }
+      }
+      else if(omLeg1Fraction <= 0.0)
+      {
+         err = "InpOMLeg1Fraction deve ser > 0 quando modo 1 perna";
+         return(false);
+      }
+      if(omSlPolicyId == "" || omTpPolicyId == "" || omTsPolicyId == "" || omBePolicyId == "" || omPendingPolicyId == "" || omRiskPolicyId == "")
+      {
+         err = "InpOMSlPolicyId/InpOMTpPolicyId/InpOMTsPolicyId/InpOMBePolicyId/InpOMPendingPolicyId/InpOMRiskSubmodule invalidos";
+         return(false);
+      }
+      if(omTrailAtrPeriod < 1)
+      {
+         err = "InpOMTrailAtrPeriod invalido";
+         return(false);
+      }
+      if(omTrailAtrMult <= 0.0)
+      {
+         err = "InpOMTrailAtrMult invalido";
+         return(false);
+      }
+      if(riskCountertrendScale <= 0.0 || riskCountertrendScale > 1.0)
+      {
+         err = "InpRiskCountertrendScale invalido";
+         return(false);
+      }
+      if(omHedgeOcoOrderFamily < HEDGE_OCO_FAMILY_STOP || omHedgeOcoOrderFamily > HEDGE_OCO_FAMILY_STOP_LIMIT)
+      {
+         err = "InpOMHedgeOcoOrderFamily invalido";
+         return(false);
+      }
+      if(omHedgeMaxBaskets < 1)
+      {
+         err = "InpOMHedgeMaxBaskets invalido";
+         return(false);
+      }
+      if(omHedgeTargetMoney <= 0.0 || omHedgeStopMoney <= 0.0)
+      {
+         err = "InpOMHedgeTargetMoney/InpOMHedgeStopMoney invalidos";
+         return(false);
+      }
+      if(omHedgeBiasStrongWeight <= 0.5 || omHedgeBiasStrongWeight >= 1.0)
+      {
+         err = "InpOMHedgeBiasStrongWeight invalido";
+         return(false);
+      }
+      if(omHedgeStopLimitPullbackFrac <= 0.0 || omHedgeStopLimitPullbackFrac >= 1.0)
+      {
+         err = "InpOMHedgeStopLimitPullbackFrac invalido";
+         return(false);
+      }
+      if(verifyDailyDdPct <= 0.0 || verifyDailyDdPct > 100.0)
+      {
+         err = "InpVerifyDailyDDPct invalido";
+         return(false);
+      }
+      if(verifyMinFreeMarginPct <= 0.0 || verifyMinFreeMarginPct > 100.0)
+      {
+         err = "InpVerifyMinFreeMarginPct invalido";
+         return(false);
+      }
       return(true);
+   }
+
+   void BuildOrderManagerConfig(SOrderManagerConfig &outCfg) const
+   {
+      outCfg.allowBuy = allowBuy;
+      outCfg.allowSell = allowSell;
+      outCfg.onePairLock = onePairLock;
+      outCfg.openTwoLegs = omOpenTwoLegs;
+      outCfg.lots = lots;
+      outCfg.leg1Fraction = omLeg1Fraction;
+      outCfg.leg2Fraction = omLeg2Fraction;
+      outCfg.magic = magic;
+      outCfg.slPolicyId = omSlPolicyId;
+      outCfg.tpPolicyId = omTpPolicyId;
+      outCfg.tsPolicyId = omTsPolicyId;
+      outCfg.bePolicyId = omBePolicyId;
+      outCfg.pendingPolicyId = omPendingPolicyId;
+      outCfg.riskPolicyId = omRiskPolicyId;
+      outCfg.execMode = omExecMode;
+      outCfg.hedgeCfg.orderFamily = omHedgeOcoOrderFamily;
+      outCfg.hedgeCfg.maxBaskets = omHedgeMaxBaskets;
+      outCfg.hedgeCfg.targetMoney = omHedgeTargetMoney;
+      outCfg.hedgeCfg.stopMoney = omHedgeStopMoney;
+      outCfg.hedgeCfg.biasStrongWeight = omHedgeBiasStrongWeight;
+      outCfg.hedgeCfg.stopLimitPullbackFrac = omHedgeStopLimitPullbackFrac;
+      outCfg.policyCfg.trailAtrPeriod = omTrailAtrPeriod;
+      outCfg.policyCfg.trailAtrMult = omTrailAtrMult;
+      outCfg.policyCfg.riskCountertrendScale = riskCountertrendScale;
    }
 };
 

@@ -12,6 +12,8 @@
 #include "OrderManager/OrderManagerModule.mqh"
 #include "Exec/ExecModule.mqh"
 #include "View/ViewModule.mqh"
+#include "Verification/VerificationModule.mqh"
+#include "Main/MainRuntimeModule.mqh"
 
 CConfigModule      g_cfg;
 CIndicatorModule   g_indicators;
@@ -20,46 +22,18 @@ CEntrySignalModule g_entrySignal;
 COrderManagerModule g_orderMgr;
 CExecModule        g_exec;
 CViewModule        g_view;
+CVerificationModule g_verify;
+CMainRuntimeModule g_runtime;
 
 CIndicatorSnapshot g_snapshot;
 CSignalRule        g_rule;
+SOrderManagerConfig g_omCfg;
 
 SRuntimeViewState  g_viewState;
 
-bool g_lastBuyArmed = false;
-bool g_lastSellArmed = false;
-datetime g_signalBarTime = 0;
-int g_buySignals = 0;
-int g_sellSignals = 0;
-
-bool g_modulesReady = false;
-bool g_moduleCheckScheduled = false;
-datetime g_moduleCheckDue = 0;
-string g_moduleCheckMsg = "not-run";
-datetime g_lastModuleCheckLog = 0;
-
-void ResetSignalCountersOnNewBar()
+void LogSystem(const string msg)
 {
-   datetime b0 = iTime(_Symbol, _Period, 0);
-   if(b0 > 0 && b0 != g_signalBarTime)
-   {
-      g_signalBarTime = b0;
-      g_lastBuyArmed = false;
-      g_lastSellArmed = false;
-   }
-}
-
-void UpdateSignalCounters(const SSignalDecision &d)
-{
-   ResetSignalCountersOnNewBar();
-
-   if(d.buyArmed && !g_lastBuyArmed)
-      g_buySignals++;
-   if(d.sellArmed && !g_lastSellArmed)
-      g_sellSignals++;
-
-   g_lastBuyArmed = d.buyArmed;
-   g_lastSellArmed = d.sellArmed;
+   g_view.PublishSystem(msg);
 }
 
 bool RunModuleCheckOnce(string &err, string &detail)
@@ -82,6 +56,9 @@ bool RunModuleCheckOnce(string &err, string &detail)
    warmDecision.buyArmed = false;
    warmDecision.sellArmed = false;
    warmDecision.reason = "";
+   warmDecision.buyTrace = "";
+   warmDecision.sellTrace = "";
+   warmDecision.buffersTrace = "";
    g_entrySignal.Evaluate(warmSnap, g_rule, warmDecision);
 
    if(StringFind(warmDecision.reason, "missing key:") >= 0)
@@ -90,9 +67,26 @@ bool RunModuleCheckOnce(string &err, string &detail)
       return(false);
    }
 
-   detail = StringFormat("keys=%d decision=%s",
-                         warmSnap.Count(),
-                         warmDecision.reason);
+   detail = StringFormat("keys=%d decision=%s", warmSnap.Count(), warmDecision.reason);
+   return(true);
+}
+
+bool ProcessPendingModuleCheck(const string stage, string &fatalErr)
+{
+   fatalErr = "";
+   if(!g_verify.NeedCheckNow())
+      return(true);
+
+   string checkErr = "";
+   string checkDetail = "";
+   bool ok = RunModuleCheckOnce(checkErr, checkDetail);
+
+   string applyLog = "";
+   bool fatal = false;
+   g_verify.ApplyCheckResult(ok, (ok ? checkDetail : checkErr), applyLog, fatal);
+   if(applyLog != "")
+      LogSystem(StringFormat("%s: %s", stage, applyLog));
+
    return(true);
 }
 
@@ -104,85 +98,143 @@ int OnInit()
 
    if(!g_cfg.LoadFromInputs(err))
    {
-      PrintFormat("[MOD-EA] Config invalido: %s", err);
+      LogSystem(StringFormat("Config invalido: %s", err));
       return(INIT_PARAMETERS_INCORRECT);
    }
 
+   g_view.Configure(g_cfg.viewChart,
+                    g_cfg.viewTerminal,
+                    g_cfg.viewRefreshMs);
+
+   // No tester visual, evita auto-attach implicito dos iCustom.
+   // A exibicao fica sob autoridade exclusiva do modulo View.
+   if((bool)MQLInfoInteger(MQL_TESTER))
+      TesterHideIndicators(true);
+
    if(!g_strategy.Init(g_cfg.strategyId, err))
    {
-      PrintFormat("[MOD-EA] Falha Strategy.Init: %s", err);
+      LogSystem(StringFormat("Falha Strategy.Init: %s", err));
       return(INIT_FAILED);
    }
 
+   CStrategyParamBag stParams;
+   stParams.Clear();
+   stParams.SetInt("auth.effort.enabled", (g_cfg.authUseEffort ? 1 : 0));
+   stParams.SetInt("auth.mfi.enabled", (g_cfg.authUseMfi ? 1 : 0));
+   g_strategy.SetParams(stParams);
+
    if(!g_strategy.BuildRule(g_rule, err))
    {
-      PrintFormat("[MOD-EA] Falha BuildRule: %s", err);
+      LogSystem(StringFormat("Falha BuildRule: %s", err));
       return(INIT_FAILED);
    }
 
    if(!g_indicators.Init(g_cfg.indicatorIds, err))
    {
-      PrintFormat("[MOD-EA] Falha Indicators.Init: %s", err);
+      LogSystem(StringFormat("Falha Indicators.Init: %s", err));
       return(INIT_FAILED);
    }
 
-   g_exec.Init(g_cfg.magic, g_cfg.deviationPoints);
-   g_view.Configure(g_cfg.viewChart, g_cfg.viewTerminal, g_cfg.viewRefreshMs);
-
-   g_modulesReady = true;
-   g_moduleCheckScheduled = false;
-   g_moduleCheckDue = 0;
-   g_lastModuleCheckLog = 0;
-
-   if(g_cfg.moduleCheckMode == MODULE_CHECK_ON_INIT)
+   if(g_cfg.viewChart && g_cfg.viewAttachIndicators)
    {
-      string checkErr = "";
-      string checkDetail = "";
-      if(!RunModuleCheckOnce(checkErr, checkDetail))
-      {
-         g_moduleCheckMsg = StringFormat("init-fail: %s", checkErr);
-         PrintFormat("[MOD-EA] ModuleCheck falhou no OnInit: %s", checkErr);
-         if(g_cfg.moduleCheckHardFail)
-            return(INIT_FAILED);
+      bool attachSlots[];
+      ArrayResize(attachSlots, 8);
+      attachSlots[0] = g_cfg.viewAttachSubwindow1;
+      attachSlots[1] = g_cfg.viewAttachSubwindow2;
+      attachSlots[2] = g_cfg.viewAttachSubwindow3;
+      attachSlots[3] = g_cfg.viewAttachSubwindow4;
+      attachSlots[4] = g_cfg.viewAttachSubwindow5;
+      attachSlots[5] = g_cfg.viewAttachSubwindow6;
+      attachSlots[6] = g_cfg.viewAttachSubwindow7;
+      attachSlots[7] = g_cfg.viewAttachSubwindow8;
 
-         g_modulesReady = false;
-         g_moduleCheckScheduled = true;
-         g_moduleCheckDue = TimeCurrent();
-         EventSetTimer(1);
-      }
-      else
-      {
-         g_moduleCheckMsg = StringFormat("ok(init): %s", checkDetail);
-         PrintFormat("[MOD-EA] ModuleCheck ok no OnInit: %s", checkDetail);
-      }
+      string attachErr = "";
+      if(!g_view.AttachIndicators(ChartID(), g_indicators, attachSlots, attachErr) && attachErr != "")
+         LogSystem(StringFormat("Attach indicators no chart: %s", attachErr));
    }
-   else if(g_cfg.moduleCheckMode == MODULE_CHECK_ON_TIMER_ONCE)
+   else if(g_cfg.viewChart && !g_cfg.viewAttachIndicators)
    {
-      g_modulesReady = false;
-      g_moduleCheckScheduled = true;
-      g_moduleCheckDue = TimeCurrent() + (datetime)g_cfg.moduleCheckDelaySec;
-      g_moduleCheckMsg = StringFormat("agendado +%d sec", g_cfg.moduleCheckDelaySec);
+      int removed = g_view.DetachIndicators(ChartID(), g_indicators);
+      if(removed > 0)
+         LogSystem(StringFormat("Indicators detach no chart: removidos=%d", removed));
+   }
+
+   g_cfg.BuildOrderManagerConfig(g_omCfg);
+
+   if(!g_orderMgr.InitPoliciesByConfig(g_omCfg, err))
+   {
+      LogSystem(StringFormat("Falha OrderManager.InitPolicies: %s", err));
+      return(INIT_FAILED);
+   }
+
+   g_exec.Init(g_omCfg.magic, g_cfg.deviationPoints);
+   g_verify.Configure(g_cfg.moduleCheckMode,
+                      g_cfg.moduleCheckDelaySec,
+                      g_cfg.moduleCheckHardFail);
+   g_verify.ResetRuntimeState();
+
+   string verifyLog = "";
+   string verifyFatal = "";
+   g_verify.Begin(verifyLog, verifyFatal);
+   if(verifyLog != "")
+      LogSystem(verifyLog);
+
+   string pendingFatal = "";
+   ProcessPendingModuleCheck("init", pendingFatal);
+
+   g_runtime.Bind(g_cfg,
+                  g_indicators,
+                  g_strategy,
+                  g_entrySignal,
+                  g_orderMgr,
+                  g_exec,
+                  g_view,
+                  g_verify,
+                  g_snapshot,
+                  g_rule,
+                  g_omCfg,
+                  g_viewState);
+
+   if(g_verify.NeedTimer())
       EventSetTimer(1);
-      PrintFormat("[MOD-EA] ModuleCheck agendado para timer (+%d sec)", g_cfg.moduleCheckDelaySec);
-   }
    else
-   {
-      g_moduleCheckMsg = "disabled";
-   }
+      EventKillTimer();
 
    g_viewState.strategyId = g_strategy.CurrentId();
    g_viewState.signalText = "INIT";
-   g_viewState.signalReason = g_moduleCheckMsg;
+   g_viewState.signalReason = g_verify.ModuleCheckMessage();
+   g_viewState.authorityStatus = "INIT";
+   g_viewState.authorityReason = "-";
+   g_viewState.blockReason = "";
    g_viewState.execText = "idle";
    g_viewState.positions = 0;
    g_viewState.buySignals = 0;
    g_viewState.sellSignals = 0;
+   g_viewState.buyArmed = false;
+   g_viewState.sellArmed = false;
+   g_viewState.useEffortAuth = g_cfg.authUseEffort;
+   g_viewState.useMfiAuth = g_cfg.authUseMfi;
+   g_viewState.csBuyTrigger = 0.0;
+   g_viewState.csSellTrigger = 0.0;
+   g_viewState.csBuyZero = 0.0;
+   g_viewState.csSellZero = 0.0;
+   g_viewState.effortBuyAuth = 0.0;
+   g_viewState.effortSellAuth = 0.0;
+   g_viewState.mfiBuyAuth = 0.0;
+   g_viewState.mfiSellAuth = 0.0;
+   g_viewState.activeBaskets = 0;
+   g_viewState.basketNetPnl = 0.0;
+   g_viewState.buyCondTrace = "-";
+   g_viewState.sellCondTrace = "-";
+   g_viewState.signalBuffersTrace = "-";
+   g_viewState.indicatorBuffersLine1 = "-";
+   g_viewState.indicatorBuffersLine2 = "-";
    g_viewState.ts = TimeCurrent();
 
-   PrintFormat("[MOD-EA] Inicializado. strategy=%s indicators=%s rule=%s",
-               g_strategy.CurrentId(),
-               g_indicators.LoadedIdsText(),
-               g_rule.ruleId);
+   LogSystem(StringFormat("Inicializado. strategy=%s indicators=%s rule=%s",
+                          g_strategy.CurrentId(),
+                          g_indicators.LoadedIdsText(),
+                          g_rule.ruleId));
 
    return(INIT_SUCCEEDED);
 }
@@ -190,110 +242,40 @@ int OnInit()
 void OnDeinit(const int reason)
 {
    EventKillTimer();
+   g_view.DetachIndicators(ChartID(), g_indicators);
    g_indicators.Deinit();
    g_strategy.Deinit();
+   g_orderMgr.Deinit();
    g_view.ClearChart();
-   PrintFormat("[MOD-EA] Deinit reason=%d", reason);
+   LogSystem(StringFormat("Deinit reason=%d", reason));
 }
 
 void OnTimer()
 {
-   if(!g_moduleCheckScheduled || g_modulesReady)
-      return;
+   string verifyLog = "";
+   g_verify.OnTimerStep(verifyLog);
+   if(verifyLog != "")
+      LogSystem(verifyLog);
 
-   datetime now = TimeCurrent();
-   if(now < g_moduleCheckDue)
-      return;
+   string pendingFatal = "";
+   ProcessPendingModuleCheck("timer", pendingFatal);
 
-   string checkErr = "";
-   string checkDetail = "";
-   if(RunModuleCheckOnce(checkErr, checkDetail))
-   {
-      g_modulesReady = true;
-      g_moduleCheckScheduled = false;
-      g_moduleCheckMsg = StringFormat("ok(timer): %s", checkDetail);
+   if(!g_verify.NeedTimer())
       EventKillTimer();
-      PrintFormat("[MOD-EA] ModuleCheck ok no timer: %s", checkDetail);
-      return;
-   }
-
-   g_moduleCheckMsg = StringFormat("pending: %s", checkErr);
-   if((now - g_lastModuleCheckLog) >= 5)
-   {
-      g_lastModuleCheckLog = now;
-      PrintFormat("[MOD-EA] ModuleCheck pendente: %s", checkErr);
-   }
 }
 
 void OnTick()
 {
-   string err = "";
-   g_snapshot.Clear();
+   string pendingFatal = "";
+   ProcessPendingModuleCheck("tick", pendingFatal);
 
-   if(!g_modulesReady)
-   {
-      g_viewState.ts = TimeCurrent();
-      g_viewState.strategyId = g_strategy.CurrentId();
-      g_viewState.signalText = "WAIT";
-      g_viewState.signalReason = StringFormat("module-check: %s", g_moduleCheckMsg);
-      g_viewState.execText = "blocked";
-      g_viewState.positions = g_orderMgr.CountOurPositions(g_cfg.magic);
-      g_viewState.buySignals = g_buySignals;
-      g_viewState.sellSignals = g_sellSignals;
-      g_view.Publish(g_viewState);
-      return;
-   }
+   g_runtime.OnTickStep();
+}
 
-   SSignalDecision decision;
-   decision.signal = SIGNAL_NONE;
-   decision.buyArmed = false;
-   decision.sellArmed = false;
-   decision.reason = "";
-
-   if(!g_indicators.Update(g_snapshot, err))
-   {
-      g_viewState.ts = TimeCurrent();
-      g_viewState.signalText = "NONE";
-      g_viewState.signalReason = StringFormat("indicators: %s", err);
-      g_viewState.execText = "skip";
-      g_viewState.positions = g_orderMgr.CountOurPositions(g_cfg.magic);
-      g_viewState.buySignals = g_buySignals;
-      g_viewState.sellSignals = g_sellSignals;
-      g_view.Publish(g_viewState);
-      return;
-   }
-
-   g_entrySignal.Evaluate(g_snapshot, g_rule, decision);
-   UpdateSignalCounters(decision);
-
-   SExecRequest req;
-   SExecResult res;
-   string omErr = "";
-   bool hasReq = g_orderMgr.BuildOpenRequest(decision, g_cfg, req, omErr);
-
-   string execText = "idle";
-   if(hasReq)
-   {
-      bool ok = g_exec.Execute(req, res);
-      execText = StringFormat("%s|accepted=%s|executed=%s|ret=%d",
-                              (ok ? "ok" : "fail"),
-                              (res.accepted ? "true" : "false"),
-                              (res.executed ? "true" : "false"),
-                              res.retcode);
-   }
-   else
-   {
-      execText = (omErr == "" ? "no-order" : omErr);
-   }
-
-   g_viewState.ts = TimeCurrent();
-   g_viewState.strategyId = g_strategy.CurrentId();
-   g_viewState.signalText = (decision.signal == SIGNAL_BUY ? "BUY" : (decision.signal == SIGNAL_SELL ? "SELL" : "NONE"));
-   g_viewState.signalReason = decision.reason;
-   g_viewState.execText = execText;
-   g_viewState.positions = g_orderMgr.CountOurPositions(g_cfg.magic);
-   g_viewState.buySignals = g_buySignals;
-   g_viewState.sellSignals = g_sellSignals;
-
-   g_view.Publish(g_viewState);
+void OnTradeTransaction(const MqlTradeTransaction &trans,
+                        const MqlTradeRequest &request,
+                        const MqlTradeResult &result)
+{
+   // request/result remain available for future broker-side routing extensions.
+   g_runtime.OnTradeTransactionStep(trans);
 }

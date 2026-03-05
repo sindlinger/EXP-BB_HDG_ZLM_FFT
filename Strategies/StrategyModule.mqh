@@ -9,12 +9,14 @@ class CStrategyModule
 private:
    IStrategyPlugin* m_strategy;
    string m_id;
+   CStrategyParamBag m_params;
 
 public:
    CStrategyModule()
    {
       m_strategy = NULL;
       m_id = "";
+      m_params.Clear();
    }
 
    void Deinit()
@@ -52,7 +54,15 @@ public:
       }
 
       m_id = chosen;
+      m_strategy.Configure(m_params);
       return(true);
+   }
+
+   void SetParams(const CStrategyParamBag &params)
+   {
+      m_params = params;
+      if(m_strategy != NULL)
+         m_strategy.Configure(m_params);
    }
 
    bool BuildRule(CSignalRule &rule, string &err)
@@ -64,6 +74,33 @@ public:
          return(false);
       }
       return(m_strategy.BuildEntryRule(rule, err));
+   }
+
+   void ApplyDecisionSnapshot(CIndicatorSnapshot &snapshot,
+                              const SSignalDecision &decision)
+   {
+      if(m_strategy == NULL)
+         return;
+      m_strategy.ApplyDecisionSnapshot(snapshot, decision);
+   }
+
+   void FillStrategyViewState(const CIndicatorSnapshot &snapshot,
+                              const SSignalDecision &decision,
+                              const bool useEffortAuth,
+                              const bool useMfiAuth,
+                              const int activeBaskets,
+                              const double basketNetPnl,
+                              SRuntimeViewState &st)
+   {
+      if(m_strategy == NULL)
+         return;
+      m_strategy.FillViewState(snapshot,
+                               decision,
+                               useEffortAuth,
+                               useMfiAuth,
+                               activeBaskets,
+                               basketNetPnl,
+                               st);
    }
 
    string CurrentId() const

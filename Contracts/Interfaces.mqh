@@ -3,6 +3,7 @@
 
 #include "CoreTypes.mqh"
 #include "Snapshot.mqh"
+#include "StrategyParams.mqh"
 
 class CSignalRule
 {
@@ -89,13 +90,119 @@ public:
    virtual bool Init(string &err) = 0;
    virtual void Deinit() = 0;
    virtual bool Update(CIndicatorSnapshot &snapshot, string &err) = 0;
+   virtual int PrimaryHandle() const
+   {
+      return(INVALID_HANDLE);
+   }
+   virtual void ChartAttachHints(string &hints[]) const
+   {
+      ArrayResize(hints, 0);
+   }
 };
 
 class IStrategyPlugin
 {
 public:
    virtual string Id() = 0;
+   virtual void Configure(const CStrategyParamBag &params) = 0;
    virtual bool BuildEntryRule(CSignalRule &rule, string &err) = 0;
+   virtual void ApplyDecisionSnapshot(CIndicatorSnapshot &snapshot,
+                                      const SSignalDecision &decision) = 0;
+   virtual void FillViewState(const CIndicatorSnapshot &snapshot,
+                              const SSignalDecision &decision,
+                              const bool useEffortAuth,
+                              const bool useMfiAuth,
+                              const int activeBaskets,
+                              const double basketNetPnl,
+                              SRuntimeViewState &st) = 0;
+};
+
+class ISlPolicyPlugin
+{
+public:
+   virtual string Id() = 0;
+   virtual bool Configure(const SOrderPolicyConfig &cfg, string &err) = 0;
+   virtual bool ComputeInitialSL(const int signal,
+                                 const CIndicatorSnapshot &snapshot,
+                                 const double entry,
+                                 double &outSL,
+                                 string &err) = 0;
+};
+
+class ITpPolicyPlugin
+{
+public:
+   virtual string Id() = 0;
+   virtual bool Configure(const SOrderPolicyConfig &cfg, string &err) = 0;
+   virtual bool ComputeInitialTP1(const int signal,
+                                  const CIndicatorSnapshot &snapshot,
+                                  const double entry,
+                                  const double initialSL,
+                                  double &outTP1,
+                                  string &err) = 0;
+   virtual bool ShouldCloseFinal(const int signal,
+                                 const CIndicatorSnapshot &snapshot,
+                                 const double openPrice,
+                                 const double bid,
+                                 const double ask,
+                                 bool &outClose,
+                                 string &err) = 0;
+};
+
+class ITsPolicyPlugin
+{
+public:
+   virtual string Id() = 0;
+   virtual bool Configure(const SOrderPolicyConfig &cfg, string &err) = 0;
+   virtual bool ComputeTrailingSL(const int signal,
+                                  const CIndicatorSnapshot &snapshot,
+                                  const double openPrice,
+                                  const double currentSL,
+                                  const double currentTP,
+                                  const double bid,
+                                  const double ask,
+                                  double &outSL,
+                                  string &err) = 0;
+};
+
+class IBePolicyPlugin
+{
+public:
+   virtual string Id() = 0;
+   virtual bool Configure(const SOrderPolicyConfig &cfg, string &err) = 0;
+   virtual bool ComputeBreakEvenSL(const int signal,
+                                   const CIndicatorSnapshot &snapshot,
+                                   const double openPrice,
+                                   const double currentSL,
+                                   const double currentTP,
+                                   const double bid,
+                                   const double ask,
+                                   double &outSL,
+                                   string &err) = 0;
+};
+
+class IPendingPolicyPlugin
+{
+public:
+   virtual string Id() = 0;
+   virtual bool Configure(const SOrderPolicyConfig &cfg, string &err) = 0;
+   virtual int BuildPendingRequests(const SSignalDecision &decision,
+                                    const CIndicatorSnapshot &snapshot,
+                                    const SOrderManagerConfig &cfg,
+                                    SExecRequest &reqs[],
+                                    string &err) = 0;
+};
+
+class IRiskPolicyPlugin
+{
+public:
+   virtual string Id() = 0;
+   virtual bool Configure(const SOrderPolicyConfig &cfg, string &err) = 0;
+   virtual bool ComputeLotScale(const int signal,
+                                const CIndicatorSnapshot &snapshot,
+                                const bool isSecondLeg,
+                                double &outScale,
+                                string &reason) = 0;
 };
 
 #endif

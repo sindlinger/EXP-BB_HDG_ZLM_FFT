@@ -1,0 +1,114 @@
+#ifndef __CSM_INDICATOR_TEMPLATE_NAME_MQH__
+#define __CSM_INDICATOR_TEMPLATE_NAME_MQH__
+
+#include "..\\..\\Contracts\\Interfaces.mqh"
+
+// TEMPLATE:
+// 1) Copie este arquivo para Indicators/Plugins/<NomeDoPlugin>.mqh
+// 2) Troque <NomeDoPlugin>, caminho do iCustom e buffers
+// 3) Execute Tools/generate_registry.py
+// 4) Compile o EA
+//
+// Regra obrigatoria:
+// - Nao colocar inputs do indicador no EA.
+// - O plugin chama iCustom sem parametros extras para usar defaults do indicador.
+
+class CIndicatorPlugin_NomeDoPlugin : public IIndicatorPlugin
+{
+private:
+   int m_handle;
+
+   bool ReadPair(const int bufferIdx, double &curr, double &prev, string &err)
+   {
+      err = "";
+      curr = 0.0;
+      prev = 0.0;
+
+      double v0[1], v1[1];
+      int c0 = CopyBuffer(m_handle, bufferIdx, 0, 1, v0);
+      int c1 = CopyBuffer(m_handle, bufferIdx, 1, 1, v1);
+      if(c0 < 1 || c1 < 1)
+      {
+         err = StringFormat("CopyBuffer insuficiente no buffer=%d", bufferIdx);
+         return(false);
+      }
+      curr = v0[0];
+      prev = v1[0];
+      if(!MathIsValidNumber(curr) || !MathIsValidNumber(prev))
+      {
+         err = StringFormat("valor invalido no buffer=%d", bufferIdx);
+         return(false);
+      }
+      return(true);
+   }
+
+public:
+   CIndicatorPlugin_NomeDoPlugin()
+   {
+      m_handle = INVALID_HANDLE;
+   }
+
+   virtual string Id()
+   {
+      return("NomeDoPlugin");
+   }
+
+   virtual bool Init(string &err)
+   {
+      err = "";
+
+      // IMPORTANTE: sem parametros extras => defaults do indicador standalone
+      m_handle = iCustom(_Symbol, _Period, "PASTA\\MeuIndicador");
+      if(m_handle == INVALID_HANDLE)
+      {
+         err = "falha ao criar iCustom";
+         return(false);
+      }
+
+      // Nao desenhar no chart aqui.
+      // Exibicao e responsabilidade do modulo View.
+
+      return(true);
+   }
+
+   virtual void Deinit()
+   {
+      if(m_handle != INVALID_HANDLE)
+         IndicatorRelease(m_handle);
+      m_handle = INVALID_HANDLE;
+   }
+
+   virtual bool Update(CIndicatorSnapshot &snapshot, string &err)
+   {
+      err = "";
+      if(m_handle == INVALID_HANDLE)
+      {
+         err = "plugin nao inicializado";
+         return(false);
+      }
+
+      double b0Curr = 0.0, b0Prev = 0.0;
+      double b1Curr = 0.0, b1Prev = 0.0;
+      if(!ReadPair(0, b0Curr, b0Prev, err))
+         return(false);
+      if(!ReadPair(1, b1Curr, b1Prev, err))
+         return(false);
+
+      // Chaves agnosticas que a estrategia pode usar:
+      snapshot.Upsert("feed.fast", b0Curr, b0Prev, true);
+      snapshot.Upsert("feed.slow", b1Curr, b1Prev, true);
+
+      // Chaves especificas:
+      snapshot.Upsert("nome.buffer0", b0Curr, b0Prev, true);
+      snapshot.Upsert("nome.buffer1", b1Curr, b1Prev, true);
+
+      return(true);
+   }
+};
+
+IIndicatorPlugin* CreateIndicatorPlugin_NomeDoPlugin()
+{
+   return(new CIndicatorPlugin_NomeDoPlugin());
+}
+
+#endif

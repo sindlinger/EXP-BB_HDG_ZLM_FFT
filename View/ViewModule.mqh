@@ -16,7 +16,17 @@ private:
    CTerminalView m_terminal;
 
 public:
-   void Configure(const bool chartOn, const bool terminalOn, const int refreshMs)
+   CViewModule()
+   {
+      m_chartOn = false;
+      m_terminalOn = true;
+      m_refreshMs = 250;
+      m_lastMs = 0;
+   }
+
+   void Configure(const bool chartOn,
+                  const bool terminalOn,
+                  const int refreshMs)
    {
       m_chartOn = chartOn;
       m_terminalOn = terminalOn;
@@ -37,8 +47,34 @@ public:
          m_terminal.Render(st);
    }
 
+   void PublishSystem(const string msg)
+   {
+      if(m_terminalOn)
+         m_terminal.RenderSystem(msg);
+   }
+
+   bool AttachIndicators(const long chartId,
+                         const CIndicatorModule &indicators,
+                         const bool &attachSlots[],
+                         string &err)
+   {
+      err = "";
+      if(!m_chartOn)
+         return(true);
+      return(m_chart.AttachIndicators(chartId, indicators, attachSlots, err));
+   }
+
+   int DetachIndicators(const long chartId,
+                        const CIndicatorModule &indicators)
+   {
+      if(!m_chartOn)
+         return(0);
+      return(m_chart.DetachIndicators(chartId, indicators));
+   }
+
    void ClearChart()
    {
+      m_chart.Clear();
       Comment("");
    }
 };
