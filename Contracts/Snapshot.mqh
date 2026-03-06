@@ -1,3 +1,6 @@
+// [POLICY] PROIBIDO: EA nao pode compartilhar/passar inputs para indicador.
+// [POLICY] Indicadores devem rodar com seus proprios inputs internos (iCustom sem parametros do EA).
+
 #ifndef __CSM_SNAPSHOT_MQH__
 #define __CSM_SNAPSHOT_MQH__
 
@@ -119,7 +122,8 @@ public:
       if(rc != 0)
       {
          m_lastBusRc = rc;
-         m_busOnline = false;
+         // Erro transitório de lock não deve derrubar a sessão inteira do bus.
+         // Mantemos online e tentamos novamente no próximo ciclo.
       }
    }
 
@@ -200,17 +204,7 @@ public:
 
    bool Get(const string key, double &curr, double &prev) const
    {
-      // 1) Prioriza cache local do tick atual (evita dependencia de roundtrip no bus).
-      int idx = FindIndex(key);
-      if(idx >= 0 && idx < ArraySize(m_valid) && m_valid[idx])
-      {
-         curr = m_curr[idx];
-         prev = m_prev[idx];
-         if(MathIsValidNumber(curr) && MathIsValidNumber(prev))
-            return(true);
-      }
-
-      // 2) Fallback no bus compartilhado.
+      // Arquitetura strict-bus: leitura sempre pela DLL (sem fallback local).
       if(!m_busOnline)
          return(false);
 
@@ -221,10 +215,34 @@ public:
       int rc = CsmBus_Read(key, bc, bp, bValid, bt);
       if(rc != 0 || bValid == 0)
          return(false);
+      if(bt != m_tickSeq)
+         return(false); // evita consumir snapshot antigo/desincronizado
 
       curr = bc;
       prev = bp;
       return(MathIsValidNumber(curr) && MathIsValidNumber(prev));
+   }
+
+   bool ProbeBusKey(const string key, long &tickSeq, int &valid, int &readRc) const
+   {
+      tickSeq = 0;
+      valid = 0;
+      readRc = -1;
+      if(!m_busOnline)
+      {
+         readRc = -1000;
+         return(false);
+      }
+
+      double bc = 0.0;
+      double bp = 0.0;
+      long bt = 0;
+      int bValid = 0;
+      int rc = CsmBus_Read(key, bc, bp, bValid, bt);
+      readRc = rc;
+      valid = bValid;
+      tickSeq = bt;
+      return(rc == 0);
    }
 
    int Count() const

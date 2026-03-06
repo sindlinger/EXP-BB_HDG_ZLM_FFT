@@ -1,3 +1,6 @@
+// [POLICY] PROIBIDO: EA nao pode compartilhar/passar inputs para indicador.
+// [POLICY] Indicadores devem rodar com seus proprios inputs internos (iCustom sem parametros do EA).
+
 #ifndef __CSM_BLOCK_AUTHORITY_MODULE_MQH__
 #define __CSM_BLOCK_AUTHORITY_MODULE_MQH__
 

@@ -1,3 +1,6 @@
+// [POLICY] PROIBIDO: EA nao pode compartilhar/passar inputs para indicador.
+// [POLICY] Indicadores devem rodar com seus proprios inputs internos (iCustom sem parametros do EA).
+
 #ifndef __CSM_STRATEGY_CLOSESCALE_EFFORT_MFI_AUTH_MQH__
 #define __CSM_STRATEGY_CLOSESCALE_EFFORT_MFI_AUTH_MQH__
 

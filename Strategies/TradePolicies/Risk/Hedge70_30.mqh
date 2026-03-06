@@ -1,12 +1,12 @@
 // [POLICY] PROIBIDO: EA nao pode compartilhar/passar inputs para indicador.
 // [POLICY] Indicadores devem rodar com seus proprios inputs internos (iCustom sem parametros do EA).
 
-#ifndef __CSM_RISK_CLOSESCALE_COUNTERTREND_ABOVE_ZERO_MQH__
-#define __CSM_RISK_CLOSESCALE_COUNTERTREND_ABOVE_ZERO_MQH__
+#ifndef __CSM_RISK_HEDGE_70_30_MQH__
+#define __CSM_RISK_HEDGE_70_30_MQH__
 
 #include "..\\..\\..\\Contracts\\Interfaces.mqh"
 
-class CRiskPolicy_CloseScaleCountertrendAboveZero : public IRiskPolicyPlugin
+class CRiskPolicy_Hedge70_30 : public IRiskPolicyPlugin
 {
 private:
    double m_scaleCountertrend;
@@ -23,7 +23,7 @@ private:
    }
 
 public:
-   CRiskPolicy_CloseScaleCountertrendAboveZero()
+   CRiskPolicy_Hedge70_30()
    {
       m_scaleCountertrend = 0.30;
       m_scaleTrend = 0.70;
@@ -31,15 +31,15 @@ public:
 
    virtual string Id()
    {
-      return("CloseScaleRisk_CountertrendAboveZero");
+      return("Hedge70_30");
    }
 
    virtual bool Configure(const SOrderPolicyConfig &cfg, string &err)
    {
       err = "";
-      if(cfg.riskCountertrendScale <= 0.0 || cfg.riskCountertrendScale > 1.0)
+      if(cfg.riskCountertrendScale <= 0.0 || cfg.riskCountertrendScale >= 1.0)
       {
-         err = "riskCountertrendScale invalido (esperado >0 e <=1)";
+         err = "riskCountertrendScale invalido (esperado >0 e <1)";
          return(false);
       }
 
@@ -55,15 +55,11 @@ public:
                                 string &reason)
    {
       outScale = 1.0;
-      reason = "risk normal: scale=1.00";
+      reason = "hedge70_30: scale=1.00 (neutro)";
 
       if(signal != SIGNAL_BUY && signal != SIGNAL_SELL)
          return(true);
 
-      // Regra solicitada:
-      // - Tendencia: 70% do volume
-      // - Contratendencia: 30% do volume
-      // Consumindo os regimes canonicos do indicador.
       double buyTrend = 0.0, buyTrendPrev = 0.0;
       double buyCounter = 0.0, buyCounterPrev = 0.0;
       double sellTrend = 0.0, sellTrendPrev = 0.0;
@@ -73,7 +69,7 @@ public:
          !TryGet(snapshot, "closescale.regime_sell_trend", sellTrend, sellTrendPrev) ||
          !TryGet(snapshot, "closescale.regime_sell_counter", sellCounter, sellCounterPrev))
       {
-         reason = "risk: regimes canonicos indisponiveis, mantendo scale=1.00";
+         reason = "hedge70_30: regimes canonicos indisponiveis, scale=1.00";
          return(true);
       }
 
@@ -82,7 +78,7 @@ public:
          if(buyTrend > 0.5)
          {
             outScale = m_scaleTrend;
-            reason = StringFormat("risk buy tendencia: scale=%.2f%s",
+            reason = StringFormat("hedge70_30 buy tendencia: scale=%.2f%s",
                                   outScale,
                                   (isSecondLeg ? " (leg2)" : ""));
             return(true);
@@ -90,7 +86,7 @@ public:
          if(buyCounter > 0.5)
          {
             outScale = m_scaleCountertrend;
-            reason = StringFormat("risk buy contratendencia: scale=%.2f%s",
+            reason = StringFormat("hedge70_30 buy contratendencia: scale=%.2f%s",
                                   outScale,
                                   (isSecondLeg ? " (leg2)" : ""));
             return(true);
@@ -101,7 +97,7 @@ public:
          if(sellTrend > 0.5)
          {
             outScale = m_scaleTrend;
-            reason = StringFormat("risk sell tendencia: scale=%.2f%s",
+            reason = StringFormat("hedge70_30 sell tendencia: scale=%.2f%s",
                                   outScale,
                                   (isSecondLeg ? " (leg2)" : ""));
             return(true);
@@ -109,22 +105,20 @@ public:
          if(sellCounter > 0.5)
          {
             outScale = m_scaleCountertrend;
-            reason = StringFormat("risk sell contratendencia: scale=%.2f%s",
+            reason = StringFormat("hedge70_30 sell contratendencia: scale=%.2f%s",
                                   outScale,
                                   (isSecondLeg ? " (leg2)" : ""));
             return(true);
          }
       }
 
-      reason = "risk regime neutro: scale=1.00";
-
       return(true);
    }
 };
 
-IRiskPolicyPlugin* CreateRiskPolicy_CloseScaleCountertrendAboveZero()
+IRiskPolicyPlugin* CreateRiskPolicy_Hedge70_30()
 {
-   return(new CRiskPolicy_CloseScaleCountertrendAboveZero());
+   return(new CRiskPolicy_Hedge70_30());
 }
 
 #endif

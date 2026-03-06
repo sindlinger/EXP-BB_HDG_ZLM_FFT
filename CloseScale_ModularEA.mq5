@@ -1,3 +1,6 @@
+// [POLICY] PROIBIDO: EA nao pode compartilhar/passar inputs para indicador.
+// [POLICY] Indicadores devem rodar com seus proprios inputs internos (iCustom sem parametros do EA).
+
 #property strict
 #property version   "1.001"
 #property description "CloseScale Modular EA: contratos agnosticos + plugins de indicador/estrategia"
@@ -59,7 +62,6 @@ bool RunModuleCheckOnce(string &err, string &detail)
    {
       err = StringFormat("indicadores sem leitura valida: %s", updErr);
       warmSnap.EndCycle();
-      warmSnap.ShutdownBus();
       return(false);
    }
 
@@ -78,13 +80,11 @@ bool RunModuleCheckOnce(string &err, string &detail)
    {
       err = StringFormat("regra/indicadores inconsistentes: %s", warmDecision.reason);
       warmSnap.EndCycle();
-      warmSnap.ShutdownBus();
       return(false);
    }
 
    detail = StringFormat("keys=%d decision=%s", warmSnap.Count(), warmDecision.reason);
    warmSnap.EndCycle();
-   warmSnap.ShutdownBus();
    return(true);
 }
 
@@ -121,7 +121,12 @@ int OnInit()
 
    g_view.Configure(g_cfg.viewChart,
                     g_cfg.viewTerminal,
-                    g_cfg.viewRefreshMs);
+                    g_cfg.viewRefreshMs,
+                    g_cfg.viewShowStateHeader,
+                    g_cfg.viewShowSyncTelemetry,
+                    g_cfg.viewShowIndicatorValues,
+                    g_cfg.viewShowConditionRules,
+                    g_cfg.viewShowTradeTape);
 
    string busErr = "";
    if(!g_snapshot.ConfigureBus(g_cfg.busSession, busErr))
@@ -263,6 +268,21 @@ int OnInit()
    g_viewState.signalBuffersTrace = "-";
    g_viewState.indicatorBuffersLine1 = "-";
    g_viewState.indicatorBuffersLine2 = "-";
+   g_viewState.busOnline = false;
+   g_viewState.busLastRc = 0;
+   g_viewState.tickSeqLocal = 0;
+   g_viewState.tickSeqReadBuf0 = 0;
+   g_viewState.tickSeqReadBuf2 = 0;
+   g_viewState.tickSeqReadBuf4 = 0;
+   g_viewState.tickSeqReadBuf5 = 0;
+   g_viewState.busReadRcBuf0 = 0;
+   g_viewState.busReadRcBuf2 = 0;
+   g_viewState.busReadRcBuf4 = 0;
+   g_viewState.busReadRcBuf5 = 0;
+   g_viewState.busReadValidBuf0 = 0;
+   g_viewState.busReadValidBuf2 = 0;
+   g_viewState.busReadValidBuf4 = 0;
+   g_viewState.busReadValidBuf5 = 0;
    g_viewState.ts = TimeCurrent();
 
    LogSystem(StringFormat("Inicializado. strategy=%s indicators=%s rule=%s",

@@ -1,3 +1,6 @@
+// [POLICY] PROIBIDO: EA nao pode compartilhar/passar inputs para indicador.
+// [POLICY] Indicadores devem rodar com seus proprios inputs internos (iCustom sem parametros do EA).
+
 #ifndef __CSM_INTERFACES_MQH__
 #define __CSM_INTERFACES_MQH__
 
@@ -90,6 +93,11 @@ public:
    virtual bool Init(string &err) = 0;
    virtual void Deinit() = 0;
    virtual bool Update(CIndicatorSnapshot &snapshot, string &err) = 0;
+   virtual bool EnforceNoEaInputSharing(string &err) const
+   {
+      err = "plugin nao declarou conformidade com policy de inputs de indicador";
+      return(false);
+   }
    virtual int PrimaryHandle() const
    {
       return(INVALID_HANDLE);

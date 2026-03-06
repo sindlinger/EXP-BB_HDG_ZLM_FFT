@@ -1,3 +1,6 @@
+// [POLICY] PROIBIDO: EA nao pode compartilhar/passar inputs para indicador.
+// [POLICY] Indicadores devem rodar com seus proprios inputs internos (iCustom sem parametros do EA).
+
 #ifndef __CSM_CONFIG_MODULE_MQH__
 #define __CSM_CONFIG_MODULE_MQH__
 
@@ -47,6 +50,11 @@ public:
    bool viewChart;
    bool viewTerminal;
    int viewRefreshMs;
+   bool viewShowStateHeader;
+   bool viewShowSyncTelemetry;
+   bool viewShowIndicatorValues;
+   bool viewShowConditionRules;
+   bool viewShowTradeTape;
    bool viewAttachIndicators;
    bool viewAttachSubwindow1;
    bool viewAttachSubwindow2;
@@ -81,7 +89,7 @@ public:
       omRiskPolicyId = "DefaultRisk";
       omTrailAtrPeriod = 14;
       omTrailAtrMult = 1.0;
-      riskCountertrendScale = 0.35;
+      riskCountertrendScale = 0.30;
       omExecMode = OM_EXEC_LEGACY;
       omHedgeOcoOrderFamily = HEDGE_OCO_FAMILY_STOP_LIMIT;
       omHedgeMaxBaskets = 2;
@@ -98,6 +106,11 @@ public:
       viewChart = true;
       viewTerminal = true;
       viewRefreshMs = 250;
+      viewShowStateHeader = false;
+      viewShowSyncTelemetry = false;
+      viewShowIndicatorValues = false;
+      viewShowConditionRules = true;
+      viewShowTradeTape = true;
       viewAttachIndicators = true;
       viewAttachSubwindow1 = true;
       viewAttachSubwindow2 = true;
@@ -177,9 +190,16 @@ public:
       omBePolicyId = InpOMBePolicyId;
       omPendingPolicyId = InpOMPendingPolicyId;
       if(InpOMRiskSubmodule == RISK_SUBMODULE_DEFAULT)
-         omRiskPolicyId = "DefaultRisk";
+      {
+         if(strategyId == "CloseScaleEffortMfiAuth")
+            omRiskPolicyId = "Hedge70_30";
+         else
+            omRiskPolicyId = "DefaultRisk";
+      }
       else if(InpOMRiskSubmodule == RISK_SUBMODULE_CLOSESCALE_COUNTERTREND_ABOVE_ZERO)
          omRiskPolicyId = "CloseScaleRisk_CountertrendAboveZero";
+      else if(InpOMRiskSubmodule == RISK_SUBMODULE_HEDGE_70_30)
+         omRiskPolicyId = "Hedge70_30";
       else
          omRiskPolicyId = "";
       omTrailAtrPeriod = InpOMTrailAtrPeriod;
@@ -197,10 +217,24 @@ public:
       authUseEffort = InpAuthUseEffort;
       authUseMfi = InpAuthUseMfi;
       busSession = InpBusSession;
+      if(busSession == "CSM_DEFAULT")
+      {
+         // Evita colisao de sessao entre instancias/charts/testers.
+         busSession = StringFormat("CSM_%s_%d_%I64d_%I64d",
+                                   _Symbol,
+                                   (int)_Period,
+                                   magic,
+                                   ChartID());
+      }
 
       viewChart = InpViewChart;
       viewTerminal = InpViewTerminal;
       viewRefreshMs = InpViewRefreshMs;
+      viewShowStateHeader = InpViewShowStateHeader;
+      viewShowSyncTelemetry = InpViewShowSyncTelemetry;
+      viewShowIndicatorValues = InpViewShowIndicatorValues;
+      viewShowConditionRules = InpViewShowConditionRules;
+      viewShowTradeTape = InpViewShowTradeTape;
       viewAttachIndicators = InpViewAttachIndicators;
       viewAttachSubwindow1 = InpViewAttachSubwindow1;
       viewAttachSubwindow2 = InpViewAttachSubwindow2;
@@ -212,6 +246,11 @@ public:
       viewAttachSubwindow8 = InpViewAttachSubwindow8;
 
       ParseCsv(InpModIndicatorsCsv, indicatorIds);
+      if(strategyId == "CloseScaleEffortMfiAuth" && !authUseEffort && !authUseMfi)
+      {
+         ArrayResize(indicatorIds, 1);
+         indicatorIds[0] = "CloseScaleForecastFeed";
+      }
 
       if(lots <= 0.0)
       {

@@ -1,3 +1,6 @@
+// [POLICY] PROIBIDO: EA nao pode compartilhar/passar inputs para indicador.
+// [POLICY] Indicadores devem rodar com seus proprios inputs internos (iCustom sem parametros do EA).
+
 #ifndef __CSM_VIEW_MODULE_MQH__
 #define __CSM_VIEW_MODULE_MQH__
 
@@ -26,12 +29,22 @@ public:
 
    void Configure(const bool chartOn,
                   const bool terminalOn,
-                  const int refreshMs)
+                  const int refreshMs,
+                  const bool showStateHeader,
+                  const bool showSyncTelemetry,
+                  const bool showIndicatorValues,
+                  const bool showConditionRules,
+                  const bool showTradeTape)
    {
       m_chartOn = chartOn;
       m_terminalOn = terminalOn;
       m_refreshMs = refreshMs;
       m_lastMs = 0;
+      m_chart.ConfigureSections(showStateHeader,
+                                showSyncTelemetry,
+                                showIndicatorValues,
+                                showConditionRules,
+                                showTradeTape);
    }
 
    void Publish(const SRuntimeViewState &st)
@@ -51,6 +64,14 @@ public:
    {
       if(m_terminalOn)
          m_terminal.RenderSystem(msg);
+   }
+
+   void PublishTradeTape(const string text, const color clr)
+   {
+      if(m_chartOn)
+         m_chart.PushTradeTape(text, clr);
+      if(m_terminalOn)
+         m_terminal.RenderTradeTape(text);
    }
 
    bool AttachIndicators(const long chartId,

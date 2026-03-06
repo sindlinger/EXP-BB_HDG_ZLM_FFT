@@ -1,3 +1,6 @@
+// [POLICY] PROIBIDO: EA nao pode compartilhar/passar inputs para indicador.
+// [POLICY] Indicadores devem rodar com seus proprios inputs internos (iCustom sem parametros do EA).
+
 #ifndef __CSM_MAIN_RUNTIME_MODULE_MQH__
 #define __CSM_MAIN_RUNTIME_MODULE_MQH__
 
@@ -82,6 +85,21 @@ private:
       m_viewState.signalBuffersTrace = "-";
       m_viewState.indicatorBuffersLine1 = "-";
       m_viewState.indicatorBuffersLine2 = "-";
+      m_viewState.busOnline = false;
+      m_viewState.busLastRc = 0;
+      m_viewState.tickSeqLocal = 0;
+      m_viewState.tickSeqReadBuf0 = 0;
+      m_viewState.tickSeqReadBuf2 = 0;
+      m_viewState.tickSeqReadBuf4 = 0;
+      m_viewState.tickSeqReadBuf5 = 0;
+      m_viewState.busReadRcBuf0 = 0;
+      m_viewState.busReadRcBuf2 = 0;
+      m_viewState.busReadRcBuf4 = 0;
+      m_viewState.busReadRcBuf5 = 0;
+      m_viewState.busReadValidBuf0 = 0;
+      m_viewState.busReadValidBuf2 = 0;
+      m_viewState.busReadValidBuf4 = 0;
+      m_viewState.busReadValidBuf5 = 0;
    }
 
 public:
@@ -228,7 +246,9 @@ public:
       int openReqCount = 0;
       if(!openGateBlocked)
       {
+         m_snapshot.SetWriterModule("risk");
          openReqCount = m_orderMgr.BuildOpenRequests(decision, *m_snapshot, m_omCfg, openReqs, omErr);
+         m_snapshot.SetWriterModule("main");
       }
 
       int openOk = 0;
@@ -259,8 +279,13 @@ public:
 
       int activeBasketsAfter = m_orderMgr.CountActiveBaskets(m_omCfg);
       double basketNetPnl = m_orderMgr.SumActiveBasketNetPnl(m_omCfg);
+      double riskScaleCurr = 1.0;
+      double riskScalePrev = 1.0;
+      if(!m_snapshot.Get("risk.scale.applied", riskScaleCurr, riskScalePrev))
+         riskScaleCurr = 1.0;
       string execText = StringFormat("open %d/%d | manage %d/%d | baskets=%d pnl=%.2f",
                                      openOk, openReqCount, manageOk, manageReqCount, activeBasketsAfter, basketNetPnl);
+      execText += StringFormat(" | risk=%s scale=%.2f", m_omCfg.riskPolicyId, riskScaleCurr);
 
       string localBlockReason = "";
       if(decision.signal != SIGNAL_NONE && !openGateBlocked && openReqCount <= 0)
@@ -334,6 +359,14 @@ public:
                                        basketNetPnl,
                                        m_viewState);
 
+      m_viewState.busOnline = m_snapshot.BusOnline();
+      m_viewState.busLastRc = m_snapshot.LastBusRc();
+      m_viewState.tickSeqLocal = m_snapshot.CurrentTickSeq();
+      m_snapshot.ProbeBusKey("ind1_buf0", m_viewState.tickSeqReadBuf0, m_viewState.busReadValidBuf0, m_viewState.busReadRcBuf0);
+      m_snapshot.ProbeBusKey("ind1_buf2", m_viewState.tickSeqReadBuf2, m_viewState.busReadValidBuf2, m_viewState.busReadRcBuf2);
+      m_snapshot.ProbeBusKey("ind1_buf4", m_viewState.tickSeqReadBuf4, m_viewState.busReadValidBuf4, m_viewState.busReadRcBuf4);
+      m_snapshot.ProbeBusKey("ind1_buf5", m_viewState.tickSeqReadBuf5, m_viewState.busReadValidBuf5, m_viewState.busReadRcBuf5);
+
       m_view.Publish(m_viewState);
       m_snapshot.Report("main", "tick.end", 0, localBlockReason);
       m_snapshot.EndCycle();
@@ -343,6 +376,50 @@ public:
    {
       if(!IsBound())
          return;
+
+      if(trans.type == TRADE_TRANSACTION_DEAL_ADD && trans.deal > 0)
+      {
+         if(HistoryDealSelect(trans.deal))
+         {
+            long entry = (long)HistoryDealGetInteger(trans.deal, DEAL_ENTRY);
+            long dealType = (long)HistoryDealGetInteger(trans.deal, DEAL_TYPE);
+            double vol = HistoryDealGetDouble(trans.deal, DEAL_VOLUME);
+            double price = HistoryDealGetDouble(trans.deal, DEAL_PRICE);
+            double profit = HistoryDealGetDouble(trans.deal, DEAL_PROFIT);
+            double swap = HistoryDealGetDouble(trans.deal, DEAL_SWAP);
+            double comm = HistoryDealGetDouble(trans.deal, DEAL_COMMISSION);
+            double net = profit + swap + comm;
+
+            string side = "DEAL";
+            if(dealType == DEAL_TYPE_BUY)
+               side = "BUY";
+            else if(dealType == DEAL_TYPE_SELL)
+               side = "SELL";
+
+            if(entry == DEAL_ENTRY_IN)
+            {
+               m_view.PublishTradeTape(StringFormat("%s OPEN %.2f @ %s",
+                                                    side,
+                                                    vol,
+                                                    DoubleToString(price, _Digits)),
+                                      clrSilver);
+            }
+            else if(entry == DEAL_ENTRY_OUT || entry == DEAL_ENTRY_OUT_BY || entry == DEAL_ENTRY_INOUT)
+            {
+               color pnlColor = clrSilver;
+               if(net > 0.0)
+                  pnlColor = clrDodgerBlue;
+               else if(net < 0.0)
+                  pnlColor = clrTomato;
+
+               m_view.PublishTradeTape(StringFormat("%s %s%.2f",
+                                                    side,
+                                                    (net >= 0.0 ? "+" : ""),
+                                                    net),
+                                      pnlColor);
+            }
+         }
+      }
 
       SExecRequest reqs[];
       string summary = "";

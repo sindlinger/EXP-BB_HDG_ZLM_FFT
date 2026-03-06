@@ -1,3 +1,6 @@
+// [POLICY] PROIBIDO: EA nao pode compartilhar/passar inputs para indicador.
+// [POLICY] Indicadores devem rodar com seus proprios inputs internos (iCustom sem parametros do EA).
+
 #ifndef __CSM_TERMINAL_VIEW_MQH__
 #define __CSM_TERMINAL_VIEW_MQH__
 
@@ -95,6 +98,15 @@ public:
                             BoolText(st.regimeCounterBull),
                             BoolText(st.regimeTrendBear),
                             BoolText(st.regimeCounterBear)));
+         Print(StringFormat("[MOD-EA] bus_last_rc=%d tick_seq_local=%I64d bus_online=%s",
+                            st.busLastRc,
+                            st.tickSeqLocal,
+                            BoolText(st.busOnline)));
+         Print(StringFormat("[MOD-EA] tick_seq_lido b0=%I64d(rc=%d,v=%d) b2=%I64d(rc=%d,v=%d) b4=%I64d(rc=%d,v=%d) b5=%I64d(rc=%d,v=%d)",
+                            st.tickSeqReadBuf0, st.busReadRcBuf0, st.busReadValidBuf0,
+                            st.tickSeqReadBuf2, st.busReadRcBuf2, st.busReadValidBuf2,
+                            st.tickSeqReadBuf4, st.busReadRcBuf4, st.busReadValidBuf4,
+                            st.tickSeqReadBuf5, st.busReadRcBuf5, st.busReadValidBuf5));
          m_lastDetail = detail;
          m_lastDetailTs = nowTs;
       }
@@ -111,6 +123,13 @@ public:
          Print(line);
          m_lastSystem = line;
       }
+   }
+
+   void RenderTradeTape(const string line)
+   {
+      if(line == "")
+         return;
+      Print(StringFormat("[MOD-EA][TRADE] %s", line));
    }
 };
 

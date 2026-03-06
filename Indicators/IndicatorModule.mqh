@@ -1,3 +1,6 @@
+// [POLICY] PROIBIDO: EA nao pode compartilhar/passar inputs para indicador.
+// [POLICY] Indicadores devem rodar com seus proprios inputs internos (iCustom sem parametros do EA).
+
 #ifndef __CSM_INDICATOR_MODULE_MQH__
 #define __CSM_INDICATOR_MODULE_MQH__
 
@@ -84,6 +87,16 @@ public:
          if(!p.Init(initErr))
          {
             err = StringFormat("falha Init indicador '%s': %s", id, initErr);
+            delete p;
+            Deinit();
+            return(false);
+         }
+
+         string policyErr = "";
+         if(!p.EnforceNoEaInputSharing(policyErr))
+         {
+            err = StringFormat("policy inputs indicador violada em '%s': %s", id, policyErr);
+            p.Deinit();
             delete p;
             Deinit();
             return(false);

@@ -1,3 +1,6 @@
+// [POLICY] PROIBIDO: EA nao pode compartilhar/passar inputs para indicador.
+// [POLICY] Indicadores devem rodar com seus proprios inputs internos (iCustom sem parametros do EA).
+
 #ifndef __CSM_INDICATOR_MFI_AUTH_FEED_MQH__
 #define __CSM_INDICATOR_MFI_AUTH_FEED_MQH__
 
@@ -8,6 +11,7 @@ class CIndicatorPlugin_MfiAuthFeed : public IIndicatorPlugin
 {
 private:
    int m_handle;
+   bool m_noEaInputSharing;
 
    bool ReadPair(const int bufferIdx, double &curr, double &prev, string &err)
    {
@@ -38,6 +42,7 @@ public:
    CIndicatorPlugin_MfiAuthFeed()
    {
       m_handle = INVALID_HANDLE;
+      m_noEaInputSharing = false;
    }
 
    virtual string Id()
@@ -62,12 +67,13 @@ public:
       err = "";
 
       // Sem parametros extras: carrega MFI com defaults do proprio indicador.
-      m_handle = iCustom(_Symbol, _Period, CSM_BRIDGE_MFI_PATH);
+      m_noEaInputSharing = false;
+      m_handle = CsmCreateIcustomHandleNoParams(Id(), CSM_BRIDGE_MFI_PATH, err);
       if(m_handle == INVALID_HANDLE)
       {
-         err = "falha ao criar iCustom para MFI_Bridge";
          return(false);
       }
+      m_noEaInputSharing = true;
 
       // Indicador NAO e anexado ao chart por este modulo.
       // Exibicao no chart/terminal e responsabilidade do modulo View.
@@ -80,6 +86,16 @@ public:
          IndicatorRelease(m_handle);
 
       m_handle = INVALID_HANDLE;
+      m_noEaInputSharing = false;
+   }
+
+   virtual bool EnforceNoEaInputSharing(string &err) const
+   {
+      err = "";
+      if(m_noEaInputSharing)
+         return(true);
+      err = "plugin nao confirmou abertura path-only sem parametros do EA";
+      return(false);
    }
 
    virtual bool Update(CIndicatorSnapshot &snapshot, string &err)

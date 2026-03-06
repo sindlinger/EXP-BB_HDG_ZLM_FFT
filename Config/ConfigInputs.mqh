@@ -1,3 +1,6 @@
+// [POLICY] PROIBIDO: EA nao pode compartilhar/passar inputs para indicador.
+// [POLICY] Indicadores devem rodar com seus proprios inputs internos (iCustom sem parametros do EA).
+
 #ifndef __CSM_CONFIG_INPUTS_MQH__
 #define __CSM_CONFIG_INPUTS_MQH__
 
@@ -5,7 +8,7 @@
 
 input group "Core"
 input string InpModStrategyId = "CloseScaleEffortMfiAuth";
-input string InpModIndicatorsCsv = "CloseScaleForecastFeed,EffortResultFirAuthFeed,MfiAuthFeed";
+input string InpModIndicatorsCsv = "CloseScaleForecastFeed";
 input bool   InpModAllowBuy = true;
 input bool   InpModAllowSell = true;
 input double InpModLots = 0.10;
@@ -25,7 +28,7 @@ input string InpOMTpPolicyId = "CloseScaleTP_NextLevelAndFinal";
 input string InpOMTsPolicyId = "CloseScaleTS_HalfLevel";
 input string InpOMBePolicyId = "NoneBE";
 input string InpOMPendingPolicyId = "NonePending";
-input ERiskSubmodule InpOMRiskSubmodule = RISK_SUBMODULE_DEFAULT;
+input ERiskSubmodule InpOMRiskSubmodule = RISK_SUBMODULE_HEDGE_70_30;
 input int InpOMTrailAtrPeriod = 14;
 input double InpOMTrailAtrMult = 1.0;
 input EModuleToggle InpOMHedgeSubmodule = MODULE_DISABLED;
@@ -56,6 +59,11 @@ input group "View"
 input bool InpViewChart = true;
 input bool InpViewTerminal = true;
 input int  InpViewRefreshMs = 250;
+input bool InpViewShowStateHeader = false;
+input bool InpViewShowSyncTelemetry = false;
+input bool InpViewShowIndicatorValues = false;
+input bool InpViewShowConditionRules = true;
+input bool InpViewShowTradeTape = true;
 input bool InpViewAttachIndicators = true;
 input bool InpViewAttachSubwindow1 = true;
 input bool InpViewAttachSubwindow2 = true;

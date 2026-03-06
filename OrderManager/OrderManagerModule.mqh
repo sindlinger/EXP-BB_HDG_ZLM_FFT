@@ -1,3 +1,6 @@
+// [POLICY] PROIBIDO: EA nao pode compartilhar/passar inputs para indicador.
+// [POLICY] Indicadores devem rodar com seus proprios inputs internos (iCustom sem parametros do EA).
+
 #ifndef __CSM_ORDER_MANAGER_MODULE_MQH__
 #define __CSM_ORDER_MANAGER_MODULE_MQH__
 
@@ -398,7 +401,7 @@ public:
    }
 
    int BuildOpenRequests(const SSignalDecision &decision,
-                         const CIndicatorSnapshot &snapshot,
+                         CIndicatorSnapshot &snapshot,
                          const SOrderManagerConfig &cfg,
                          SExecRequest &reqs[],
                          string &err)
@@ -416,6 +419,7 @@ public:
       string riskReason = "";
       if(!m_risk.ComputeLotScale(decision.signal, snapshot, false, lotScale, riskReason))
       {
+         snapshot.Report("risk", "compute_lot_scale", 2001, (riskReason == "" ? "falha sem detalhe" : riskReason));
          err = StringFormat("Risk policy (%s): falha ao calcular escala (%s)",
                             m_risk.Id(),
                             (riskReason == "" ? "sem detalhe" : riskReason));
@@ -423,12 +427,17 @@ public:
       }
       if(!MathIsValidNumber(lotScale) || lotScale <= 0.0)
       {
+         snapshot.Report("risk", "compute_lot_scale", 2002, StringFormat("escala invalida %.6f", lotScale));
          err = StringFormat("Risk policy (%s): escala invalida %.6f (%s)",
                             m_risk.Id(),
                             lotScale,
                             (riskReason == "" ? "sem detalhe" : riskReason));
          return(0);
       }
+      snapshot.Upsert("risk.scale.applied", lotScale, lotScale, true);
+      snapshot.Upsert("risk.scale.base_lots", cfg.lots, cfg.lots, true);
+      snapshot.Upsert("risk.policy.id.Hedge70_30", (m_risk.Id() == "Hedge70_30" ? 1.0 : 0.0), (m_risk.Id() == "Hedge70_30" ? 1.0 : 0.0), true);
+      snapshot.Report("risk", "compute_lot_scale", 0, (riskReason == "" ? "ok" : riskReason));
 
       if(cfg.execMode == OM_EXEC_HEDGE_OCO_V1)
       {
@@ -472,10 +481,40 @@ public:
          return(0);
       }
 
-      double lot1 = NormalizeVolume(cfg.lots * (leg1Frac / fracSum));
-      double lot2 = NormalizeVolume(cfg.lots * (leg2Frac / fracSum));
-      lot1 = NormalizeVolume(lot1 * lotScale);
-      lot2 = NormalizeVolume(lot2 * lotScale);
+      // Primeiro aplica a escala de risco no lote TOTAL; depois reparte entre pernas.
+      // Isso evita distorcao de 70/30 por arredondamento do step em cada perna separadamente.
+      double scaledTotalLots = NormalizeVolume(cfg.lots * lotScale);
+      if(scaledTotalLots <= 0.0)
+      {
+         err = StringFormat("volume total invalido apos risk policy (%s)", m_risk.Id());
+         return(0);
+      }
+
+      double lot1 = 0.0;
+      double lot2 = 0.0;
+      if(cfg.openTwoLegs)
+      {
+         double leg1Target = scaledTotalLots * (leg1Frac / fracSum);
+         lot1 = NormalizeVolume(leg1Target);
+         lot2 = NormalizeVolume(scaledTotalLots - lot1);
+
+         // Fallback: se step inviabilizar a perna 2, concentra tudo na perna 1.
+         if(lot1 <= 0.0 && lot2 > 0.0)
+         {
+            lot1 = lot2;
+            lot2 = 0.0;
+         }
+         if(lot2 <= 0.0)
+            lot1 = NormalizeVolume(scaledTotalLots);
+      }
+      else
+      {
+         lot1 = NormalizeVolume(scaledTotalLots);
+         lot2 = 0.0;
+      }
+
+      snapshot.Upsert("risk.scale.leg1_lot", lot1, lot1, (lot1 > 0.0));
+      snapshot.Upsert("risk.scale.leg2_lot", lot2, lot2, (lot2 > 0.0));
 
       if(lot1 <= 0.0)
       {

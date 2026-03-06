@@ -1,3 +1,6 @@
+// [POLICY] PROIBIDO: EA nao pode compartilhar/passar inputs para indicador.
+// [POLICY] Indicadores devem rodar com seus proprios inputs internos (iCustom sem parametros do EA).
+
 #ifndef __CSM_CORE_TYPES_MQH__
 #define __CSM_CORE_TYPES_MQH__
 
@@ -129,6 +132,21 @@ struct SRuntimeViewState
    string signalBuffersTrace;
    string indicatorBuffersLine1;
    string indicatorBuffersLine2;
+   bool busOnline;
+   int busLastRc;
+   long tickSeqLocal;
+   long tickSeqReadBuf0;
+   long tickSeqReadBuf2;
+   long tickSeqReadBuf4;
+   long tickSeqReadBuf5;
+   int busReadRcBuf0;
+   int busReadRcBuf2;
+   int busReadRcBuf4;
+   int busReadRcBuf5;
+   int busReadValidBuf0;
+   int busReadValidBuf2;
+   int busReadValidBuf4;
+   int busReadValidBuf5;
 };
 
 struct SOrderPolicyConfig

@@ -1,3 +1,6 @@
+// [POLICY] PROIBIDO: EA nao pode compartilhar/passar inputs para indicador.
+// [POLICY] Indicadores devem rodar com seus proprios inputs internos (iCustom sem parametros do EA).
+
 #ifndef __CSM_CONFIG_ENUMS_MQH__
 #define __CSM_CONFIG_ENUMS_MQH__
 
@@ -17,7 +20,8 @@ enum EModuleToggle
 enum ERiskSubmodule
 {
    RISK_SUBMODULE_DEFAULT = 0,
-   RISK_SUBMODULE_CLOSESCALE_COUNTERTREND_ABOVE_ZERO = 1
+   RISK_SUBMODULE_CLOSESCALE_COUNTERTREND_ABOVE_ZERO = 1,
+   RISK_SUBMODULE_HEDGE_70_30 = 2
 };
 
 enum EOmExecMode

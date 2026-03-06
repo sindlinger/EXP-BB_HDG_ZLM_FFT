@@ -1,3 +1,6 @@
+// [POLICY] PROIBIDO: EA nao pode compartilhar/passar inputs para indicador.
+// [POLICY] Indicadores devem rodar com seus proprios inputs internos (iCustom sem parametros do EA).
+
 #ifndef __CSM_CHART_VIEW_MQH__
 #define __CSM_CHART_VIEW_MQH__
 
@@ -8,6 +11,18 @@ class CChartView
 {
 private:
    string m_prefix;
+   string m_tradeTapeText[];
+   color  m_tradeTapeColor[];
+   bool   m_showStateHeader;
+   bool   m_showSyncTelemetry;
+   bool   m_showIndicatorValues;
+   bool   m_showConditionRules;
+   bool   m_showTradeTape;
+
+   enum
+   {
+      TRADE_TAPE_MAX = 16
+   };
 
    string ObjName(const string id) const
    {
@@ -209,6 +224,50 @@ public:
    CChartView()
    {
       m_prefix = "CSM_V1_";
+      ArrayResize(m_tradeTapeText, 0);
+      ArrayResize(m_tradeTapeColor, 0);
+      m_showStateHeader = false;
+      m_showSyncTelemetry = false;
+      m_showIndicatorValues = false;
+      m_showConditionRules = true;
+      m_showTradeTape = true;
+   }
+
+   void ConfigureSections(const bool showStateHeader,
+                          const bool showSyncTelemetry,
+                          const bool showIndicatorValues,
+                          const bool showConditionRules,
+                          const bool showTradeTape)
+   {
+      m_showStateHeader = showStateHeader;
+      m_showSyncTelemetry = showSyncTelemetry;
+      m_showIndicatorValues = showIndicatorValues;
+      m_showConditionRules = showConditionRules;
+      m_showTradeTape = showTradeTape;
+   }
+
+   void PushTradeTape(const string text, const color clr)
+   {
+      if(text == "")
+         return;
+
+      int n = ArraySize(m_tradeTapeText);
+      if(n < TRADE_TAPE_MAX)
+      {
+         ArrayResize(m_tradeTapeText, n + 1);
+         ArrayResize(m_tradeTapeColor, n + 1);
+         m_tradeTapeText[n] = text;
+         m_tradeTapeColor[n] = clr;
+         return;
+      }
+
+      for(int i = 0; i < TRADE_TAPE_MAX - 1; i++)
+      {
+         m_tradeTapeText[i] = m_tradeTapeText[i + 1];
+         m_tradeTapeColor[i] = m_tradeTapeColor[i + 1];
+      }
+      m_tradeTapeText[TRADE_TAPE_MAX - 1] = text;
+      m_tradeTapeColor[TRADE_TAPE_MAX - 1] = clr;
    }
 
    void Render(const SRuntimeViewState &st)
@@ -217,63 +276,134 @@ public:
       int y = 12;
       int dy = 18;
 
-      SetLabel("L" + IntegerToString(row++), y, StringFormat("CloseScale_ModularEA v1.001 | %s", st.strategyId), clrWhite, 10);
-      y += dy;
-
-      SetLabel("L" + IntegerToString(row++), y, StringFormat("Signal=%s | Pos=%d | BUY/SELL=%d/%d",
-                                      st.signalText,
-                                      st.positions,
-                                      st.buySignals,
-                                      st.sellSignals), clrWhite, 10);
-      y += dy;
-
-      SetLabel("L" + IntegerToString(row++), y, StringFormat("ind1_buf0 (BridgeFeed1)   = %s", PairText(st.waveCurr, st.wavePrev, 6)), clrDeepSkyBlue, 9);
-      y += dy;
-      SetLabel("L" + IntegerToString(row++), y, StringFormat("ind1_buf1 (BridgeFeed2)   = %s", PairText(st.feed2Curr, st.feed2Prev, 6)), clrDeepSkyBlue, 9);
-      y += dy;
-      SetLabel("L" + IntegerToString(row++), y, StringFormat("ind1_buf2 (BridgeBBUpper) = %s", PairText(st.bandUpCurr, st.bandUpPrev, 6)), clrDeepSkyBlue, 9);
-      y += dy;
-      SetLabel("L" + IntegerToString(row++), y, StringFormat("ind1_buf3 (BridgeBBMiddle)= %s", PairText(st.bandMidCurr, st.bandMidPrev, 6)), clrDeepSkyBlue, 9);
-      y += dy;
-      SetLabel("L" + IntegerToString(row++), y, StringFormat("ind1_buf4 (BridgeBBLower) = %s", PairText(st.bandDnCurr, st.bandDnPrev, 6)), clrDeepSkyBlue, 9);
-      y += dy;
-      SetLabel("L" + IntegerToString(row++), y, StringFormat("ind1_buf5 (BridgeZero)    = %s", PairText(st.zeroCurr, st.zeroPrev, 6)), clrDeepSkyBlue, 9);
-      y += dy;
-      SetLabel("L" + IntegerToString(row++), y, StringFormat("exec.bb_cross_buy       (closescale.exec_buy_bb_cross)      = %s", BoolText(st.condBuyCross)), BoolColor(st.condBuyCross), 9);
-      y += dy;
-      SetLabel("L" + IntegerToString(row++), y, StringFormat("exec.bb_cross_sell      (closescale.exec_sell_bb_cross)     = %s", BoolText(st.condSellCross)), BoolColor(st.condSellCross), 9);
-      y += dy;
-      SetLabel("L" + IntegerToString(row++), y, StringFormat("auth.above_zero         (closescale.auth_above_zero)        = %s", BoolText(st.condBuyZero)), BoolColor(st.condBuyZero), 9);
-      y += dy;
-      SetLabel("L" + IntegerToString(row++), y, StringFormat("auth.below_zero         (closescale.auth_below_zero)        = %s", BoolText(st.condSellZero)), BoolColor(st.condSellZero), 9);
-      y += dy;
-      SetLabel("L" + IntegerToString(row++), y, StringFormat("zero.cross_up           (prev<=zero_prev && curr>zero)     = %s", BoolText(st.condBuyZeroCross)), BoolColor(st.condBuyZeroCross), 9);
-      y += dy;
-      SetLabel("L" + IntegerToString(row++), y, StringFormat("zero.cross_dn           (prev>=zero_prev && curr<zero)     = %s", BoolText(st.condSellZeroCross)), BoolColor(st.condSellZeroCross), 9);
-      y += dy;
-      SetLabel("L" + IntegerToString(row++), y, StringFormat("regime.bull_trend       (wave>bb_up && wave>zero)           = %s", BoolText(st.regimeTrendBull)), BoolColor(st.regimeTrendBull), 9);
-      y += dy;
-      SetLabel("L" + IntegerToString(row++), y, StringFormat("regime.bull_counter     (wave<bb_dn && wave>zero)           = %s", BoolText(st.regimeCounterBull)), BoolColor(st.regimeCounterBull), 9);
-      y += dy;
-      SetLabel("L" + IntegerToString(row++), y, StringFormat("regime.bear_trend       (wave<bb_dn && wave<zero)           = %s", BoolText(st.regimeTrendBear)), BoolColor(st.regimeTrendBear), 9);
-      y += dy;
-      SetLabel("L" + IntegerToString(row++), y, StringFormat("regime.bear_counter     (wave>bb_up && wave<zero)           = %s", BoolText(st.regimeCounterBear)), BoolColor(st.regimeCounterBear), 9);
-      y += dy;
-
-      if(st.useEffortAuth)
+      if(m_showStateHeader)
       {
-         SetLabel("L" + IntegerToString(row++), y, StringFormat("buy.effort (ind2_buf0 > ind2_buf1)  = %s", BoolText(st.condBuyEffort)), BoolColor(st.condBuyEffort), 9);
+         SetLabel("L" + IntegerToString(row++), y, StringFormat("CloseScale_ModularEA v1.001 | %s", st.strategyId), clrWhite, 10);
          y += dy;
-         SetLabel("L" + IntegerToString(row++), y, StringFormat("sell.effort(ind2_buf0 > ind2_buf1)  = %s", BoolText(st.condSellEffort)), BoolColor(st.condSellEffort), 9);
+         SetLabel("L" + IntegerToString(row++), y, StringFormat("Signal=%s | Pos=%d | BUY/SELL=%d/%d",
+                                         st.signalText,
+                                         st.positions,
+                                         st.buySignals,
+                                         st.sellSignals), clrWhite, 10);
          y += dy;
       }
 
-      if(st.useMfiAuth)
+      if(m_showSyncTelemetry)
       {
-         SetLabel("L" + IntegerToString(row++), y, StringFormat("buy.mfi (ind3_buf0 <= ind3_buf3) = %s", BoolText(st.condBuyMfi)), BoolColor(st.condBuyMfi), 9);
+         bool b0Ok = (st.busReadRcBuf0 == 0 && st.busReadValidBuf0 == 1 && st.tickSeqReadBuf0 == st.tickSeqLocal);
+         bool b2Ok = (st.busReadRcBuf2 == 0 && st.busReadValidBuf2 == 1 && st.tickSeqReadBuf2 == st.tickSeqLocal);
+         bool b4Ok = (st.busReadRcBuf4 == 0 && st.busReadValidBuf4 == 1 && st.tickSeqReadBuf4 == st.tickSeqLocal);
+         bool b5Ok = (st.busReadRcBuf5 == 0 && st.busReadValidBuf5 == 1 && st.tickSeqReadBuf5 == st.tickSeqLocal);
+         bool syncOk = (st.busOnline && st.busLastRc == 0 && b0Ok && b2Ok && b4Ok && b5Ok);
+         color syncClr = (syncOk ? clrLime : clrOrangeRed);
+         SetLabel("L" + IntegerToString(row++), y,
+                  StringFormat("bus_last_rc=%d | tick_seq_local=%I64d | bus_online=%s",
+                               st.busLastRc,
+                               st.tickSeqLocal,
+                               BoolText(st.busOnline)),
+                  syncClr, 9);
          y += dy;
-         SetLabel("L" + IntegerToString(row++), y, StringFormat("sell.mfi(ind3_buf0 >= ind3_buf4) = %s", BoolText(st.condSellMfi)), BoolColor(st.condSellMfi), 9);
+         SetLabel("L" + IntegerToString(row++), y,
+                  StringFormat("tick_seq_lido: b0=%I64d(rc=%d,v=%d) b2=%I64d(rc=%d,v=%d) b4=%I64d(rc=%d,v=%d) b5=%I64d(rc=%d,v=%d)",
+                               st.tickSeqReadBuf0, st.busReadRcBuf0, st.busReadValidBuf0,
+                               st.tickSeqReadBuf2, st.busReadRcBuf2, st.busReadValidBuf2,
+                               st.tickSeqReadBuf4, st.busReadRcBuf4, st.busReadValidBuf4,
+                               st.tickSeqReadBuf5, st.busReadRcBuf5, st.busReadValidBuf5),
+                  syncClr, 9);
          y += dy;
+      }
+
+      if(m_showIndicatorValues)
+      {
+         SetLabel("L" + IntegerToString(row++), y, StringFormat("ind1_buf0 (BridgeFeed1)   = %s", PairText(st.waveCurr, st.wavePrev, 6)), clrDeepSkyBlue, 9);
+         y += dy;
+         SetLabel("L" + IntegerToString(row++), y, StringFormat("ind1_buf1 (BridgeFeed2)   = %s", PairText(st.feed2Curr, st.feed2Prev, 6)), clrDeepSkyBlue, 9);
+         y += dy;
+         SetLabel("L" + IntegerToString(row++), y, StringFormat("ind1_buf2 (BridgeBBUpper) = %s", PairText(st.bandUpCurr, st.bandUpPrev, 6)), clrDeepSkyBlue, 9);
+         y += dy;
+         SetLabel("L" + IntegerToString(row++), y, StringFormat("ind1_buf3 (BridgeBBMiddle)= %s", PairText(st.bandMidCurr, st.bandMidPrev, 6)), clrDeepSkyBlue, 9);
+         y += dy;
+         SetLabel("L" + IntegerToString(row++), y, StringFormat("ind1_buf4 (BridgeBBLower) = %s", PairText(st.bandDnCurr, st.bandDnPrev, 6)), clrDeepSkyBlue, 9);
+         y += dy;
+         SetLabel("L" + IntegerToString(row++), y, StringFormat("ind1_buf5 (BridgeZero)    = %s", PairText(st.zeroCurr, st.zeroPrev, 6)), clrDeepSkyBlue, 9);
+         y += dy;
+      }
+
+      if(m_showConditionRules)
+      {
+         SetLabel("L" + IntegerToString(row++), y, StringFormat("exec.bb_cross_buy       (closescale.exec_buy_bb_cross)      = %s", BoolText(st.condBuyCross)), BoolColor(st.condBuyCross), 9);
+         y += dy;
+         SetLabel("L" + IntegerToString(row++), y, StringFormat("exec.bb_cross_sell      (closescale.exec_sell_bb_cross)     = %s", BoolText(st.condSellCross)), BoolColor(st.condSellCross), 9);
+         y += dy;
+         SetLabel("L" + IntegerToString(row++), y, StringFormat("auth.above_zero         (closescale.auth_above_zero)        = %s", BoolText(st.condBuyZero)), BoolColor(st.condBuyZero), 9);
+         y += dy;
+         SetLabel("L" + IntegerToString(row++), y, StringFormat("auth.below_zero         (closescale.auth_below_zero)        = %s", BoolText(st.condSellZero)), BoolColor(st.condSellZero), 9);
+         y += dy;
+         SetLabel("L" + IntegerToString(row++), y, StringFormat("zero.cross_up           (prev<=zero_prev && curr>zero)     = %s", BoolText(st.condBuyZeroCross)), BoolColor(st.condBuyZeroCross), 9);
+         y += dy;
+         SetLabel("L" + IntegerToString(row++), y, StringFormat("zero.cross_dn           (prev>=zero_prev && curr<zero)     = %s", BoolText(st.condSellZeroCross)), BoolColor(st.condSellZeroCross), 9);
+         y += dy;
+         SetLabel("L" + IntegerToString(row++), y, StringFormat("regime.bull_trend       (wave>bb_up && wave>zero)           = %s", BoolText(st.regimeTrendBull)), BoolColor(st.regimeTrendBull), 9);
+         y += dy;
+         SetLabel("L" + IntegerToString(row++), y, StringFormat("regime.bull_counter     (wave<bb_dn && wave>zero)           = %s", BoolText(st.regimeCounterBull)), BoolColor(st.regimeCounterBull), 9);
+         y += dy;
+         SetLabel("L" + IntegerToString(row++), y, StringFormat("regime.bear_trend       (wave<bb_dn && wave<zero)           = %s", BoolText(st.regimeTrendBear)), BoolColor(st.regimeTrendBear), 9);
+         y += dy;
+         SetLabel("L" + IntegerToString(row++), y, StringFormat("regime.bear_counter     (wave>bb_up && wave<zero)           = %s", BoolText(st.regimeCounterBear)), BoolColor(st.regimeCounterBear), 9);
+         y += dy;
+
+         if(st.useEffortAuth)
+         {
+            SetLabel("L" + IntegerToString(row++), y, StringFormat("buy.effort (ind2_buf0 > ind2_buf1)  = %s", BoolText(st.condBuyEffort)), BoolColor(st.condBuyEffort), 9);
+            y += dy;
+            SetLabel("L" + IntegerToString(row++), y, StringFormat("sell.effort(ind2_buf0 > ind2_buf1)  = %s", BoolText(st.condSellEffort)), BoolColor(st.condSellEffort), 9);
+            y += dy;
+         }
+
+         if(st.useMfiAuth)
+         {
+            SetLabel("L" + IntegerToString(row++), y, StringFormat("buy.mfi (ind3_buf0 <= ind3_buf3) = %s", BoolText(st.condBuyMfi)), BoolColor(st.condBuyMfi), 9);
+            y += dy;
+            SetLabel("L" + IntegerToString(row++), y, StringFormat("sell.mfi(ind3_buf0 >= ind3_buf4) = %s", BoolText(st.condSellMfi)), BoolColor(st.condSellMfi), 9);
+            y += dy;
+         }
+      }
+
+      if(m_showTradeTape)
+      {
+         int tapeCount = ArraySize(m_tradeTapeText);
+         if(tapeCount > 0)
+         {
+            SetLabel("T_HDR", y, "Trades:", clrWhite, 10);
+            y += dy;
+         }
+         for(int i = 0; i < tapeCount; i++)
+         {
+            int idx = tapeCount - 1 - i; // mais recente primeiro
+            SetLabel("T" + IntegerToString(i), y, m_tradeTapeText[idx], m_tradeTapeColor[idx], 10);
+            y += dy;
+         }
+         for(int i = tapeCount; i < TRADE_TAPE_MAX; i++)
+         {
+            string n = ObjName("T" + IntegerToString(i));
+            if(ObjectFind(0, n) >= 0)
+               ObjectDelete(0, n);
+         }
+         string h = ObjName("T_HDR");
+         if(tapeCount <= 0 && ObjectFind(0, h) >= 0)
+            ObjectDelete(0, h);
+      }
+      else
+      {
+         for(int i = 0; i < TRADE_TAPE_MAX; i++)
+         {
+            string n = ObjName("T" + IntegerToString(i));
+            if(ObjectFind(0, n) >= 0)
+               ObjectDelete(0, n);
+         }
+         string h = ObjName("T_HDR");
+         if(ObjectFind(0, h) >= 0)
+            ObjectDelete(0, h);
       }
 
       for(int i = row; i <= 64; i++)
@@ -370,6 +500,17 @@ public:
          if(ObjectFind(0, n) >= 0)
             ObjectDelete(0, n);
       }
+      for(int i = 0; i < TRADE_TAPE_MAX; i++)
+      {
+         string n = ObjName("T" + IntegerToString(i));
+         if(ObjectFind(0, n) >= 0)
+            ObjectDelete(0, n);
+      }
+      string h = ObjName("T_HDR");
+      if(ObjectFind(0, h) >= 0)
+         ObjectDelete(0, h);
+      ArrayResize(m_tradeTapeText, 0);
+      ArrayResize(m_tradeTapeColor, 0);
    }
 };
 

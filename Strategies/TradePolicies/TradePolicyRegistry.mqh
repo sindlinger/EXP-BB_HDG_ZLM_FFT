@@ -1,3 +1,6 @@
+// [POLICY] PROIBIDO: EA nao pode compartilhar/passar inputs para indicador.
+// [POLICY] Indicadores devem rodar com seus proprios inputs internos (iCustom sem parametros do EA).
+
 #ifndef __CSM_TRADE_POLICY_REGISTRY_MQH__
 #define __CSM_TRADE_POLICY_REGISTRY_MQH__
 
@@ -13,6 +16,7 @@
 #include "Pending\\CloseScalePending_NextLevelBreakout.mqh"
 #include "Risk\\DefaultRisk.mqh"
 #include "Risk\\CloseScaleRisk_CountertrendAboveZero.mqh"
+#include "Risk\\Hedge70_30.mqh"
 
 int SlPolicyRegistry_ListIds(string &out[])
 {
@@ -104,10 +108,11 @@ IPendingPolicyPlugin* PendingPolicyRegistry_CreateById(const string id)
 
 int RiskPolicyRegistry_ListIds(string &out[])
 {
-   ArrayResize(out, 2);
+   ArrayResize(out, 3);
    out[0] = "DefaultRisk";
    out[1] = "CloseScaleRisk_CountertrendAboveZero";
-   return(2);
+   out[2] = "Hedge70_30";
+   return(3);
 }
 
 IRiskPolicyPlugin* RiskPolicyRegistry_CreateById(const string id)
@@ -116,6 +121,8 @@ IRiskPolicyPlugin* RiskPolicyRegistry_CreateById(const string id)
       return(CreateRiskPolicy_Default());
    if(id == "CloseScaleRisk_CountertrendAboveZero")
       return(CreateRiskPolicy_CloseScaleCountertrendAboveZero());
+   if(id == "Hedge70_30")
+      return(CreateRiskPolicy_Hedge70_30());
    return(NULL);
 }
 

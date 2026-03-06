@@ -16,6 +16,7 @@ constexpr int BUS_DETAIL_CHARS = 160;
 
 constexpr int BUS_MAX_ENTRIES = 4096;
 constexpr int BUS_MAX_REPORTS = 512;
+constexpr DWORD BUS_LOCK_TIMEOUT_MS = 20;
 
 struct BusEntry {
     wchar_t key[BUS_KEY_CHARS];
@@ -98,7 +99,7 @@ bool LockBus() {
     if (g_mutex == nullptr) {
         return false;
     }
-    const DWORD w = WaitForSingleObject(g_mutex, 2000);
+    const DWORD w = WaitForSingleObject(g_mutex, BUS_LOCK_TIMEOUT_MS);
     return (w == WAIT_OBJECT_0 || w == WAIT_ABANDONED);
 }
 

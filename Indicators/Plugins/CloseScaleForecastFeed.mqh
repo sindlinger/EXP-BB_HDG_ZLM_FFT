@@ -1,3 +1,6 @@
+// [POLICY] PROIBIDO: EA nao pode compartilhar/passar inputs para indicador.
+// [POLICY] Indicadores devem rodar com seus proprios inputs internos (iCustom sem parametros do EA).
+
 #ifndef __CSM_INDICATOR_CLOSESCALE_FORECAST_FEED_MQH__
 #define __CSM_INDICATOR_CLOSESCALE_FORECAST_FEED_MQH__
 
@@ -11,6 +14,7 @@ private:
    int m_maLongHandle;
    int m_maShortHandle;
    int m_lastLevelCount;
+   bool m_noEaInputSharing;
 
    enum
    {
@@ -499,6 +503,7 @@ public:
       m_maLongHandle = INVALID_HANDLE;
       m_maShortHandle = INVALID_HANDLE;
       m_lastLevelCount = 0;
+      m_noEaInputSharing = false;
    }
 
    virtual string Id()
@@ -522,15 +527,14 @@ public:
    {
       err = "";
 
-      m_handle = iCustom(_Symbol,
-                         _Period,
-                         CSM_BRIDGE_CLOSESCALE_PATH);
+      m_noEaInputSharing = false;
+      m_handle = CsmCreateIcustomHandleNoParams(Id(), CSM_BRIDGE_CLOSESCALE_PATH, err);
 
       if(m_handle == INVALID_HANDLE)
       {
-         err = "falha ao criar iCustom para CloseScale_v6_Bridge";
          return(false);
       }
+      m_noEaInputSharing = true;
 
       return(true);
    }
@@ -539,6 +543,16 @@ public:
    {
       ReleaseHandles();
       m_lastLevelCount = 0;
+      m_noEaInputSharing = false;
+   }
+
+   virtual bool EnforceNoEaInputSharing(string &err) const
+   {
+      err = "";
+      if(m_noEaInputSharing)
+         return(true);
+      err = "plugin nao confirmou abertura path-only sem parametros do EA";
+      return(false);
    }
 
    virtual bool Update(CIndicatorSnapshot &snapshot, string &err)
