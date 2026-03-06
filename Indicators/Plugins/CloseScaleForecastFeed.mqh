@@ -629,12 +629,23 @@ public:
       }
 
       // Trigger direto nos buffers do indicador.
+      // Sinais canonicos do indicador:
+      // - autorizativo: acima/abaixo da linha zero
+      // - executivo: cruzamento da wave nas bandas (BUY up, SELL down)
       double buyTrigger = (signalInputsValid && wavePrev <= upPrev && waveCurr > upCurr ? 1.0 : 0.0);
       double sellTrigger = (signalInputsValid && wavePrev >= dnPrev && waveCurr < dnCurr ? 1.0 : 0.0);
       double waveAboveUpper = (waveCurr > upCurr ? 1.0 : 0.0);
       double waveBelowLower = (waveCurr < dnCurr ? 1.0 : 0.0);
       double waveAboveZero = (waveCurr > zeroCurr ? 1.0 : 0.0);
       double waveBelowZero = (waveCurr < zeroCurr ? 1.0 : 0.0);
+      double zeroCrossUp = ((waveValid && zeroValid && wavePrev <= zeroPrev && waveCurr > zeroCurr) ? 1.0 : 0.0);
+      double zeroCrossDown = ((waveValid && zeroValid && wavePrev >= zeroPrev && waveCurr < zeroCurr) ? 1.0 : 0.0);
+      double trendUp = waveAboveZero;
+      double trendDown = waveBelowZero;
+      double regimeBuyTrend = ((waveCurr > upCurr) && (waveCurr > zeroCurr) ? 1.0 : 0.0);
+      double regimeBuyCounter = ((waveCurr > upCurr) && (waveCurr < zeroCurr) ? 1.0 : 0.0);
+      double regimeSellTrend = ((waveCurr < dnCurr) && (waveCurr < zeroCurr) ? 1.0 : 0.0);
+      double regimeSellCounter = ((waveCurr < dnCurr) && (waveCurr > zeroCurr) ? 1.0 : 0.0);
       double waveRising = ((waveValid && waveCurr > wavePrev) ? 1.0 : 0.0);
       double waveFalling = ((waveValid && waveCurr < wavePrev) ? 1.0 : 0.0);
 
@@ -659,12 +670,28 @@ public:
       snapshot.Upsert("closescale.wave_below_lower", waveBelowLower, waveBelowLower, signalInputsValid);
       snapshot.Upsert("closescale.wave_above_zero", waveAboveZero, waveAboveZero, waveValid);
       snapshot.Upsert("closescale.wave_below_zero", waveBelowZero, waveBelowZero, waveValid);
+      snapshot.Upsert("closescale.zero_cross_up", zeroCrossUp, zeroCrossUp, (waveValid && zeroValid));
+      snapshot.Upsert("closescale.zero_cross_down", zeroCrossDown, zeroCrossDown, (waveValid && zeroValid));
+      snapshot.Upsert("closescale.trend_up", trendUp, trendUp, waveValid);
+      snapshot.Upsert("closescale.trend_down", trendDown, trendDown, waveValid);
+      snapshot.Upsert("closescale.auth_above_zero", waveAboveZero, waveAboveZero, waveValid);
+      snapshot.Upsert("closescale.auth_below_zero", waveBelowZero, waveBelowZero, waveValid);
+      snapshot.Upsert("closescale.exec_buy_bb_cross", buyTrigger, buyTrigger, signalInputsValid);
+      snapshot.Upsert("closescale.exec_sell_bb_cross", sellTrigger, sellTrigger, signalInputsValid);
+      snapshot.Upsert("closescale.regime_buy_trend", regimeBuyTrend, regimeBuyTrend, signalInputsValid);
+      snapshot.Upsert("closescale.regime_buy_counter", regimeBuyCounter, regimeBuyCounter, signalInputsValid);
+      snapshot.Upsert("closescale.regime_sell_trend", regimeSellTrend, regimeSellTrend, signalInputsValid);
+      snapshot.Upsert("closescale.regime_sell_counter", regimeSellCounter, regimeSellCounter, signalInputsValid);
       snapshot.Upsert("forecast.band_top", bandTopCurr, bandTopPrev, signalInputsValid);
       snapshot.Upsert("forecast.band_bot", bandBotCurr, bandBotPrev, signalInputsValid);
       snapshot.Upsert("forecast.wave_rising", waveRising, waveRising, waveValid);
       snapshot.Upsert("forecast.wave_falling", waveFalling, waveFalling, waveValid);
       snapshot.Upsert("signal.buy_trigger", buyTrigger, buyTrigger, signalInputsValid);
       snapshot.Upsert("signal.sell_trigger", sellTrigger, sellTrigger, signalInputsValid);
+      snapshot.Upsert("signal.zero_cross_buy", zeroCrossUp, zeroCrossUp, (waveValid && zeroValid));
+      snapshot.Upsert("signal.zero_cross_sell", zeroCrossDown, zeroCrossDown, (waveValid && zeroValid));
+      snapshot.Upsert("signal.auth_buy", waveAboveZero, waveAboveZero, waveValid);
+      snapshot.Upsert("signal.auth_sell", waveBelowZero, waveBelowZero, waveValid);
       snapshot.Upsert("forecast.read_shift", (double)currShift, (double)currShift, true);
       snapshot.Upsert("forecast.read_prev_shift", (double)prevShift, (double)prevShift, true);
       snapshot.Upsert("forecast.read_fallback_used", 0.0, 0.0, true);

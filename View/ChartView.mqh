@@ -239,9 +239,25 @@ public:
       y += dy;
       SetLabel("L" + IntegerToString(row++), y, StringFormat("ind1_buf5 (BridgeZero)    = %s", PairText(st.zeroCurr, st.zeroPrev, 6)), clrDeepSkyBlue, 9);
       y += dy;
-      SetLabel("L" + IntegerToString(row++), y, StringFormat("buy.trigger_up_cross    (prev<=bb_up_prev && curr>bb_up) = %s", BoolText(st.condBuyCross)), BoolColor(st.condBuyCross), 9);
+      SetLabel("L" + IntegerToString(row++), y, StringFormat("exec.bb_cross_buy       (closescale.exec_buy_bb_cross)      = %s", BoolText(st.condBuyCross)), BoolColor(st.condBuyCross), 9);
       y += dy;
-      SetLabel("L" + IntegerToString(row++), y, StringFormat("sell.trigger_dn_cross   (prev>=bb_dn_prev && curr<bb_dn) = %s", BoolText(st.condSellCross)), BoolColor(st.condSellCross), 9);
+      SetLabel("L" + IntegerToString(row++), y, StringFormat("exec.bb_cross_sell      (closescale.exec_sell_bb_cross)     = %s", BoolText(st.condSellCross)), BoolColor(st.condSellCross), 9);
+      y += dy;
+      SetLabel("L" + IntegerToString(row++), y, StringFormat("auth.above_zero         (closescale.auth_above_zero)        = %s", BoolText(st.condBuyZero)), BoolColor(st.condBuyZero), 9);
+      y += dy;
+      SetLabel("L" + IntegerToString(row++), y, StringFormat("auth.below_zero         (closescale.auth_below_zero)        = %s", BoolText(st.condSellZero)), BoolColor(st.condSellZero), 9);
+      y += dy;
+      SetLabel("L" + IntegerToString(row++), y, StringFormat("zero.cross_up           (prev<=zero_prev && curr>zero)     = %s", BoolText(st.condBuyZeroCross)), BoolColor(st.condBuyZeroCross), 9);
+      y += dy;
+      SetLabel("L" + IntegerToString(row++), y, StringFormat("zero.cross_dn           (prev>=zero_prev && curr<zero)     = %s", BoolText(st.condSellZeroCross)), BoolColor(st.condSellZeroCross), 9);
+      y += dy;
+      SetLabel("L" + IntegerToString(row++), y, StringFormat("regime.bull_trend       (wave>bb_up && wave>zero)           = %s", BoolText(st.regimeTrendBull)), BoolColor(st.regimeTrendBull), 9);
+      y += dy;
+      SetLabel("L" + IntegerToString(row++), y, StringFormat("regime.bull_counter     (wave<bb_dn && wave>zero)           = %s", BoolText(st.regimeCounterBull)), BoolColor(st.regimeCounterBull), 9);
+      y += dy;
+      SetLabel("L" + IntegerToString(row++), y, StringFormat("regime.bear_trend       (wave<bb_dn && wave<zero)           = %s", BoolText(st.regimeTrendBear)), BoolColor(st.regimeTrendBear), 9);
+      y += dy;
+      SetLabel("L" + IntegerToString(row++), y, StringFormat("regime.bear_counter     (wave>bb_up && wave<zero)           = %s", BoolText(st.regimeCounterBear)), BoolColor(st.regimeCounterBear), 9);
       y += dy;
 
       if(st.useEffortAuth)
@@ -260,7 +276,7 @@ public:
          y += dy;
       }
 
-      for(int i = row; i <= 48; i++)
+      for(int i = row; i <= 64; i++)
       {
          string n = ObjName("L" + IntegerToString(i));
          if(ObjectFind(0, n) >= 0)

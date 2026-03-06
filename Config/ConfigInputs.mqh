@@ -31,7 +31,7 @@ input double InpOMTrailAtrMult = 1.0;
 input EModuleToggle InpOMHedgeSubmodule = MODULE_DISABLED;
 
 input group "Risk Manager"
-input double InpRiskCountertrendScale = 0.35;
+input double InpRiskCountertrendScale = 0.30;
 
 input group "Hedge OCO v1"
 input int InpOMHedgeOcoOrderFamily = HEDGE_OCO_FAMILY_STOP_LIMIT;

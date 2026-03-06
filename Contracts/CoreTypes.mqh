@@ -114,6 +114,12 @@ struct SRuntimeViewState
    bool condBuyZero;
    bool condSellCross;
    bool condSellZero;
+   bool condBuyZeroCross;
+   bool condSellZeroCross;
+   bool regimeTrendBull;
+   bool regimeCounterBull;
+   bool regimeTrendBear;
+   bool regimeCounterBear;
    bool condBuyEffort;
    bool condSellEffort;
    bool condBuyMfi;

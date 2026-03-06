@@ -79,11 +79,10 @@ public:
       rule.Clear();
       rule.ruleId = Id();
 
-      // Regra base direta nos buffers publicados do indicador (ind1_buf*):
-      // BUY: ind1_buf0 cruza ind1_buf2 de baixo para cima.
-      // SELL: ind1_buf0 cruza ind1_buf4 de cima para baixo.
-      rule.AddBuy("ind1_buf0", COND_CROSS_UP, "ind1_buf2");
-      rule.AddSell("ind1_buf0", COND_CROSS_DOWN, "ind1_buf4");
+      // Regra base consumindo sinal canonico produzido no modulo de indicador:
+      // executivo BUY/SELL por cruzamento da wave nas bandas.
+      rule.AddBuy("closescale.exec_buy_bb_cross", COND_GT, "const.zero");
+      rule.AddSell("closescale.exec_sell_bb_cross", COND_GT, "const.zero");
 
       // Blocos opcionais de autorizacao (fase incremental).
       if(m_useEffortAuth)
@@ -140,7 +139,6 @@ public:
       SnapshotPair(snapshot, "ind1_buf1", st.feed2Curr, st.feed2Prev);
       SnapshotPair(snapshot, "ind1_buf5", st.zeroCurr, st.zeroPrev);
 
-      const bool okWavePrev = IsUsableBufferValue(st.wavePrev);
       const bool okUpCurr = IsUsableBufferValue(st.bandUpCurr);
       const bool okUpPrev = IsUsableBufferValue(st.bandUpPrev);
       const bool okDnCurr = IsUsableBufferValue(st.bandDnCurr);
@@ -150,18 +148,24 @@ public:
       st.bandBotCurr = (okDnCurr ? st.bandDnCurr : 0.0);
       st.bandBotPrev = (okDnPrev ? st.bandDnPrev : 0.0);
 
-      st.condBuyCross = (okWavePrev && okUpPrev && okUpCurr && st.wavePrev <= st.bandUpPrev && st.waveCurr > st.bandUpCurr);
-      st.condSellCross = (okWavePrev && okDnPrev && okDnCurr && st.wavePrev >= st.bandDnPrev && st.waveCurr < st.bandDnCurr);
-
-      st.condBuyZero = (okWavePrev && okUpPrev && st.wavePrev <= st.bandUpPrev);   // BUY start abaixo da UP
-      st.condSellZero = (okWavePrev && okDnPrev && st.wavePrev >= st.bandDnPrev);  // SELL start acima da BOTTOM
+      // Tudo abaixo vem do indicador (sinais canonicos), sem recalculo na estrategia.
+      st.condBuyCross = (SnapshotCurrOrZero(snapshot, "closescale.exec_buy_bb_cross") > 0.5);
+      st.condSellCross = (SnapshotCurrOrZero(snapshot, "closescale.exec_sell_bb_cross") > 0.5);
+      st.condBuyZero = (SnapshotCurrOrZero(snapshot, "closescale.auth_above_zero") > 0.5);
+      st.condSellZero = (SnapshotCurrOrZero(snapshot, "closescale.auth_below_zero") > 0.5);
+      st.condBuyZeroCross = (SnapshotCurrOrZero(snapshot, "closescale.zero_cross_up") > 0.5);
+      st.condSellZeroCross = (SnapshotCurrOrZero(snapshot, "closescale.zero_cross_down") > 0.5);
+      st.regimeTrendBull = (SnapshotCurrOrZero(snapshot, "closescale.regime_buy_trend") > 0.5);
+      st.regimeCounterBull = (SnapshotCurrOrZero(snapshot, "closescale.regime_buy_counter") > 0.5);
+      st.regimeTrendBear = (SnapshotCurrOrZero(snapshot, "closescale.regime_sell_trend") > 0.5);
+      st.regimeCounterBear = (SnapshotCurrOrZero(snapshot, "closescale.regime_sell_counter") > 0.5);
       st.condBuyEffort = (st.effortBuyAuth > 0.5);
       st.condSellEffort = (st.effortSellAuth > 0.5);
       st.condBuyMfi = (st.mfiBuyAuth > 0.5);
       st.condSellMfi = (st.mfiSellAuth > 0.5);
 
-      st.buyExpr = "buy : (ind1_buf0_prev <= ind1_buf2_prev) && (ind1_buf0 > ind1_buf2)";
-      st.sellExpr = "sell: (ind1_buf0_prev >= ind1_buf4_prev) && (ind1_buf0 < ind1_buf4)";
+      st.buyExpr = "buy : closescale.exec_buy_bb_cross > 0";
+      st.sellExpr = "sell: closescale.exec_sell_bb_cross > 0";
       if(useEffortAuth)
       {
          st.buyExpr += " && ind2_buf0 > ind2_buf1";
@@ -181,9 +185,13 @@ public:
                                               SnapshotPairOrEmpty(snapshot, "ind1_buf2"),
                                               SnapshotPairOrEmpty(snapshot, "ind1_buf3"),
                                               SnapshotPairOrEmpty(snapshot, "ind1_buf4"));
-      st.indicatorBuffersLine2 = StringFormat("trigger B(prev<=up && curr>up)=%s S(prev>=dn && curr<dn)=%s",
+      st.indicatorBuffersLine2 = StringFormat("trigger BB B(prev<=up && curr>up)=%s S(prev>=dn && curr<dn)=%s | ZERO trendUp=%s trendDn=%s xUp=%s xDn=%s",
                                               (st.condBuyCross ? "true" : "false"),
-                                              (st.condSellCross ? "true" : "false"));
+                                              (st.condSellCross ? "true" : "false"),
+                                              (st.condBuyZero ? "true" : "false"),
+                                              (st.condSellZero ? "true" : "false"),
+                                              (st.condBuyZeroCross ? "true" : "false"),
+                                              (st.condSellZeroCross ? "true" : "false"));
       if(useEffortAuth || useMfiAuth)
       {
          st.indicatorBuffersLine2 += StringFormat(" | effort B=%s S=%s | mfi B=%s S=%s",

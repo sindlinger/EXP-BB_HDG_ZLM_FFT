@@ -7,6 +7,7 @@ class CRiskPolicy_CloseScaleCountertrendAboveZero : public IRiskPolicyPlugin
 {
 private:
    double m_scaleCountertrend;
+   double m_scaleTrend;
 
    bool TryGet(const CIndicatorSnapshot &snapshot,
                const string key,
@@ -21,7 +22,8 @@ private:
 public:
    CRiskPolicy_CloseScaleCountertrendAboveZero()
    {
-      m_scaleCountertrend = 0.35;
+      m_scaleCountertrend = 0.30;
+      m_scaleTrend = 0.70;
    }
 
    virtual string Id()
@@ -39,6 +41,7 @@ public:
       }
 
       m_scaleCountertrend = cfg.riskCountertrendScale;
+      m_scaleTrend = (1.0 - m_scaleCountertrend);
       return(true);
    }
 
@@ -55,39 +58,62 @@ public:
          return(true);
 
       // Regra solicitada:
-      // quando cruza para baixo a(s) banda(s), mas ainda acima de zero,
-      // entrada de contratendencia deve usar lote menor.
-      if(signal != SIGNAL_SELL)
-         return(true);
-
-      double waveCurr = 0.0, wavePrev = 0.0;
-      double upCurr = 0.0, upPrev = 0.0;
-      double midCurr = 0.0, midPrev = 0.0;
-      double dnCurr = 0.0, dnPrev = 0.0;
-      double zeroCurr = 0.0, zeroPrev = 0.0;
-
-      if(!TryGet(snapshot, "forecast.wave", waveCurr, wavePrev) ||
-         !TryGet(snapshot, "forecast.band_up", upCurr, upPrev) ||
-         !TryGet(snapshot, "forecast.band_mid", midCurr, midPrev) ||
-         !TryGet(snapshot, "forecast.band_dn", dnCurr, dnPrev) ||
-         !TryGet(snapshot, "const.zero", zeroCurr, zeroPrev))
+      // - Tendencia: 70% do volume
+      // - Contratendencia: 30% do volume
+      // Consumindo os regimes canonicos do indicador.
+      double buyTrend = 0.0, buyTrendPrev = 0.0;
+      double buyCounter = 0.0, buyCounterPrev = 0.0;
+      double sellTrend = 0.0, sellTrendPrev = 0.0;
+      double sellCounter = 0.0, sellCounterPrev = 0.0;
+      if(!TryGet(snapshot, "closescale.regime_buy_trend", buyTrend, buyTrendPrev) ||
+         !TryGet(snapshot, "closescale.regime_buy_counter", buyCounter, buyCounterPrev) ||
+         !TryGet(snapshot, "closescale.regime_sell_trend", sellTrend, sellTrendPrev) ||
+         !TryGet(snapshot, "closescale.regime_sell_counter", sellCounter, sellCounterPrev))
       {
-         reason = "risk: contrato incompleto, mantendo scale=1.00";
+         reason = "risk: regimes canonicos indisponiveis, mantendo scale=1.00";
          return(true);
       }
 
-      bool crossDownAny = ((wavePrev >= upPrev && waveCurr < upCurr) ||
-                           (wavePrev >= midPrev && waveCurr < midCurr) ||
-                           (wavePrev >= dnPrev && waveCurr < dnCurr));
-
-      bool aboveZero = (waveCurr > zeroCurr);
-      if(crossDownAny && aboveZero)
+      if(signal == SIGNAL_BUY)
       {
-         outScale = m_scaleCountertrend;
-         reason = StringFormat("risk contratendencia acima de zero: scale=%.2f%s",
-                               outScale,
-                               (isSecondLeg ? " (leg2)" : ""));
+         if(buyTrend > 0.5)
+         {
+            outScale = m_scaleTrend;
+            reason = StringFormat("risk buy tendencia: scale=%.2f%s",
+                                  outScale,
+                                  (isSecondLeg ? " (leg2)" : ""));
+            return(true);
+         }
+         if(buyCounter > 0.5)
+         {
+            outScale = m_scaleCountertrend;
+            reason = StringFormat("risk buy contratendencia: scale=%.2f%s",
+                                  outScale,
+                                  (isSecondLeg ? " (leg2)" : ""));
+            return(true);
+         }
       }
+      else if(signal == SIGNAL_SELL)
+      {
+         if(sellTrend > 0.5)
+         {
+            outScale = m_scaleTrend;
+            reason = StringFormat("risk sell tendencia: scale=%.2f%s",
+                                  outScale,
+                                  (isSecondLeg ? " (leg2)" : ""));
+            return(true);
+         }
+         if(sellCounter > 0.5)
+         {
+            outScale = m_scaleCountertrend;
+            reason = StringFormat("risk sell contratendencia: scale=%.2f%s",
+                                  outScale,
+                                  (isSecondLeg ? " (leg2)" : ""));
+            return(true);
+         }
+      }
+
+      reason = "risk regime neutro: scale=1.00";
 
       return(true);
    }

@@ -99,6 +99,12 @@ public:
       st.condSellCross = (st.wavePrev >= st.feed2Prev && st.waveCurr < st.feed2Curr);
       st.condBuyZero = (st.waveCurr > st.feed2Curr);
       st.condSellZero = (st.waveCurr < st.feed2Curr);
+      st.condBuyZeroCross = false;
+      st.condSellZeroCross = false;
+      st.regimeTrendBull = false;
+      st.regimeCounterBull = false;
+      st.regimeTrendBear = false;
+      st.regimeCounterBear = false;
       st.condBuyEffort = false;
       st.condSellEffort = false;
       st.condBuyMfi = false;

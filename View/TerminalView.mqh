@@ -79,13 +79,22 @@ public:
                             DoubleToString(st.bandDnPrev, 6),
                             DoubleToString(st.zeroCurr, 6),
                             DoubleToString(st.zeroPrev, 6)));
-         Print(StringFormat("[MOD-EA] buy{trigger_up_cross(prev<=up && curr>up)=%s effort(ind2_buf0 > ind2_buf1)=%s mfi(ind3_buf0 <= ind3_buf3)=%s} sell{trigger_dn_cross(prev>=dn && curr<dn)=%s effort(ind2_buf0 > ind2_buf1)=%s mfi(ind3_buf0 >= ind3_buf4)=%s}",
+         Print(StringFormat("[MOD-EA] buy{bb_cross=%s zero_trend=%s zero_cross=%s effort(ind2_buf0 > ind2_buf1)=%s mfi(ind3_buf0 <= ind3_buf3)=%s} sell{bb_cross=%s zero_trend=%s zero_cross=%s effort(ind2_buf0 > ind2_buf1)=%s mfi(ind3_buf0 >= ind3_buf4)=%s}",
                             BoolText(st.condBuyCross),
+                            BoolText(st.condBuyZero),
+                            BoolText(st.condBuyZeroCross),
                             OptBoolText(st.useEffortAuth, st.condBuyEffort),
                             OptBoolText(st.useMfiAuth, st.condBuyMfi),
                             BoolText(st.condSellCross),
+                            BoolText(st.condSellZero),
+                            BoolText(st.condSellZeroCross),
                             OptBoolText(st.useEffortAuth, st.condSellEffort),
                             OptBoolText(st.useMfiAuth, st.condSellMfi)));
+         Print(StringFormat("[MOD-EA] regime{bull_trend=%s bull_counter=%s bear_trend=%s bear_counter=%s}",
+                            BoolText(st.regimeTrendBull),
+                            BoolText(st.regimeCounterBull),
+                            BoolText(st.regimeTrendBear),
+                            BoolText(st.regimeCounterBear)));
          m_lastDetail = detail;
          m_lastDetailTs = nowTs;
       }

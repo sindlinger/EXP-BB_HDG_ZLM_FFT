@@ -246,6 +246,16 @@ int OnInit()
    g_viewState.effortSellAuth = 0.0;
    g_viewState.mfiBuyAuth = 0.0;
    g_viewState.mfiSellAuth = 0.0;
+   g_viewState.condBuyCross = false;
+   g_viewState.condBuyZero = false;
+   g_viewState.condSellCross = false;
+   g_viewState.condSellZero = false;
+   g_viewState.condBuyZeroCross = false;
+   g_viewState.condSellZeroCross = false;
+   g_viewState.regimeTrendBull = false;
+   g_viewState.regimeCounterBull = false;
+   g_viewState.regimeTrendBear = false;
+   g_viewState.regimeCounterBear = false;
    g_viewState.activeBaskets = 0;
    g_viewState.basketNetPnl = 0.0;
    g_viewState.buyCondTrace = "-";
