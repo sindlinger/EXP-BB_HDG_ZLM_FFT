@@ -8,7 +8,6 @@
 #include "Config/ConfigModule.mqh"
 #include "Indicators/IndicatorModule.mqh"
 #include "Strategies/StrategyModule.mqh"
-#include "EntrySignal/EntrySignalModule.mqh"
 #include "OrderManager/OrderManagerModule.mqh"
 #include "Exec/ExecModule.mqh"
 #include "View/ViewModule.mqh"
@@ -18,7 +17,6 @@
 CConfigModule      g_cfg;
 CIndicatorModule   g_indicators;
 CStrategyModule    g_strategy;
-CEntrySignalModule g_entrySignal;
 COrderManagerModule g_orderMgr;
 CExecModule        g_exec;
 CViewModule        g_view;
@@ -43,14 +41,29 @@ bool RunModuleCheckOnce(string &err, string &detail)
 
    CIndicatorSnapshot warmSnap;
    warmSnap.Clear();
+   string busErr = "";
+   string checkSession = g_cfg.busSession + "_MODCHK";
+   if(!warmSnap.ConfigureBus(checkSession, busErr))
+   {
+      err = StringFormat("module-check bus init falhou: %s", busErr);
+      return(false);
+   }
+   datetime bar0 = iTime(_Symbol, _Period, 0);
+   if(bar0 <= 0)
+      bar0 = TimeCurrent();
+   warmSnap.BeginCycle(bar0, _Symbol, (int)_Period);
+   warmSnap.SetWriterModule("indicators");
 
    string updErr = "";
    if(!g_indicators.Update(warmSnap, updErr))
    {
       err = StringFormat("indicadores sem leitura valida: %s", updErr);
+      warmSnap.EndCycle();
+      warmSnap.ShutdownBus();
       return(false);
    }
 
+   warmSnap.SetWriterModule("strategy");
    SSignalDecision warmDecision;
    warmDecision.signal = SIGNAL_NONE;
    warmDecision.buyArmed = false;
@@ -59,15 +72,19 @@ bool RunModuleCheckOnce(string &err, string &detail)
    warmDecision.buyTrace = "";
    warmDecision.sellTrace = "";
    warmDecision.buffersTrace = "";
-   g_entrySignal.Evaluate(warmSnap, g_rule, warmDecision);
+   g_strategy.EvaluateSignal(warmSnap, g_rule, warmDecision);
 
    if(StringFind(warmDecision.reason, "missing key:") >= 0)
    {
       err = StringFormat("regra/indicadores inconsistentes: %s", warmDecision.reason);
+      warmSnap.EndCycle();
+      warmSnap.ShutdownBus();
       return(false);
    }
 
    detail = StringFormat("keys=%d decision=%s", warmSnap.Count(), warmDecision.reason);
+   warmSnap.EndCycle();
+   warmSnap.ShutdownBus();
    return(true);
 }
 
@@ -105,6 +122,14 @@ int OnInit()
    g_view.Configure(g_cfg.viewChart,
                     g_cfg.viewTerminal,
                     g_cfg.viewRefreshMs);
+
+   string busErr = "";
+   if(!g_snapshot.ConfigureBus(g_cfg.busSession, busErr))
+   {
+      LogSystem(StringFormat("Falha Bus DLL (obrigatorio): %s", busErr));
+      return(INIT_FAILED);
+   }
+   LogSystem(StringFormat("Bus DLL ON: session=%s", g_cfg.busSession));
 
    // No tester visual, evita auto-attach implicito dos iCustom.
    // A exibicao fica sob autoridade exclusiva do modulo View.
@@ -185,7 +210,6 @@ int OnInit()
    g_runtime.Bind(g_cfg,
                   g_indicators,
                   g_strategy,
-                  g_entrySignal,
                   g_orderMgr,
                   g_exec,
                   g_view,
@@ -242,6 +266,7 @@ int OnInit()
 void OnDeinit(const int reason)
 {
    EventKillTimer();
+   g_snapshot.ShutdownBus();
    g_view.DetachIndicators(ChartID(), g_indicators);
    g_indicators.Deinit();
    g_strategy.Deinit();

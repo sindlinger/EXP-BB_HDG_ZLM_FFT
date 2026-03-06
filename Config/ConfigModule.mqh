@@ -42,6 +42,7 @@ public:
    double verifyMinFreeMarginPct;
    bool authUseEffort;
    bool authUseMfi;
+   string busSession;
 
    bool viewChart;
    bool viewTerminal;
@@ -92,6 +93,7 @@ public:
       verifyMinFreeMarginPct = 35.0;
       authUseEffort = false;
       authUseMfi = false;
+      busSession = "CSM_DEFAULT";
 
       viewChart = true;
       viewTerminal = true;
@@ -194,6 +196,7 @@ public:
       verifyMinFreeMarginPct = InpVerifyMinFreeMarginPct;
       authUseEffort = InpAuthUseEffort;
       authUseMfi = InpAuthUseMfi;
+      busSession = InpBusSession;
 
       viewChart = InpViewChart;
       viewTerminal = InpViewTerminal;
@@ -303,6 +306,15 @@ public:
          err = "InpVerifyMinFreeMarginPct invalido";
          return(false);
       }
+      string s = busSession;
+      StringTrimLeft(s);
+      StringTrimRight(s);
+      if(s == "")
+      {
+         err = "InpBusSession invalido";
+         return(false);
+      }
+      busSession = s;
       return(true);
    }
 

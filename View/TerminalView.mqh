@@ -79,13 +79,11 @@ public:
                             DoubleToString(st.bandDnPrev, 6),
                             DoubleToString(st.zeroCurr, 6),
                             DoubleToString(st.zeroPrev, 6)));
-         Print(StringFormat("[MOD-EA] buy{cross3(prev<=bot && curr>top)=%s start(prev<=bot)=%s effort(ind2_buf0 > ind2_buf1)=%s mfi(ind3_buf0 <= ind3_buf3)=%s} sell{cross3(prev>=top && curr<bot)=%s start(prev>=top)=%s effort(ind2_buf0 > ind2_buf1)=%s mfi(ind3_buf0 >= ind3_buf4)=%s}",
+         Print(StringFormat("[MOD-EA] buy{trigger_up_cross(prev<=up && curr>up)=%s effort(ind2_buf0 > ind2_buf1)=%s mfi(ind3_buf0 <= ind3_buf3)=%s} sell{trigger_dn_cross(prev>=dn && curr<dn)=%s effort(ind2_buf0 > ind2_buf1)=%s mfi(ind3_buf0 >= ind3_buf4)=%s}",
                             BoolText(st.condBuyCross),
-                            BoolText(st.condBuyZero),
                             OptBoolText(st.useEffortAuth, st.condBuyEffort),
                             OptBoolText(st.useMfiAuth, st.condBuyMfi),
                             BoolText(st.condSellCross),
-                            BoolText(st.condSellZero),
                             OptBoolText(st.useEffortAuth, st.condSellEffort),
                             OptBoolText(st.useMfiAuth, st.condSellMfi)));
          m_lastDetail = detail;

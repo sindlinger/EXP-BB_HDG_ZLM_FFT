@@ -21,6 +21,20 @@ private:
       return(false);
    }
 
+   void AddUniqueHint(const string hint, string &hints[]) const
+   {
+      if(hint == "")
+         return;
+      int n = ArraySize(hints);
+      for(int i = 0; i < n; i++)
+      {
+         if(hints[i] == hint)
+            return;
+      }
+      ArrayResize(hints, n + 1);
+      hints[n] = hint;
+   }
+
 public:
    void Deinit()
    {
@@ -144,6 +158,34 @@ public:
       primaryHandle = m_plugins[idx].PrimaryHandle();
       m_plugins[idx].ChartAttachHints(hints);
       return(true);
+   }
+
+   bool GetRegistryAttachHints(string &hints[]) const
+   {
+      ArrayResize(hints, 0);
+
+      string allIds[];
+      int total = IndicatorRegistry_ListIds(allIds);
+      if(total <= 0)
+         return(false);
+
+      for(int i = 0; i < total; i++)
+      {
+         IIndicatorPlugin* p = IndicatorRegistry_CreateById(allIds[i]);
+         if(p == NULL)
+            continue;
+
+         string oneHints[];
+         ArrayResize(oneHints, 0);
+         p.ChartAttachHints(oneHints);
+         delete p;
+         p = NULL;
+
+         for(int h = 0; h < ArraySize(oneHints); h++)
+            AddUniqueHint(oneHints[h], hints);
+      }
+
+      return(ArraySize(hints) > 0);
    }
 
    string LoadedIdsText() const

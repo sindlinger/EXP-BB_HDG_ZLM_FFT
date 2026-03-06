@@ -79,8 +79,10 @@ private:
                                bufferIdx, currShift, copied, le);
             return(false);
          }
-         curr = pair[0];
-         prev = pair[1];
+         // CopyBuffer com count>1 retorna do mais antigo para o mais novo.
+         // Com start=currShift(0) e count=2 => pair[0]=shift1 (prev), pair[1]=shift0 (curr).
+         prev = pair[0];
+         curr = pair[1];
       }
       else
       {
@@ -615,26 +617,20 @@ public:
          zeroPrev = 0.0;
       }
 
-      bool signalInputsValid = (waveValid && upValid && midValid && dnValid && zeroValid);
+      bool signalInputsValid = (waveValid && upValid && dnValid);
 
       double bandTopCurr = 0.0, bandTopPrev = 0.0, bandBotCurr = 0.0, bandBotPrev = 0.0;
-      bool crossPackUp = false;
-      bool crossPackDn = false;
       if(signalInputsValid)
       {
          bandTopCurr = MathMax(upCurr, MathMax(midCurr, dnCurr));
          bandTopPrev = MathMax(upPrev, MathMax(midPrev, dnPrev));
          bandBotCurr = MathMin(upCurr, MathMin(midCurr, dnCurr));
          bandBotPrev = MathMin(upPrev, MathMin(midPrev, dnPrev));
-
-         // BUY: Feed1 sai de baixo de todas as 3 bandas e fecha acima de todas.
-         crossPackUp = (wavePrev <= bandBotPrev && waveCurr > bandTopCurr);
-         // SELL: Feed1 sai de cima de todas as 3 bandas e fecha abaixo de todas.
-         crossPackDn = (wavePrev >= bandTopPrev && waveCurr < bandBotCurr);
       }
 
-      double buyTrigger = (crossPackUp ? 1.0 : 0.0);
-      double sellTrigger = (crossPackDn ? 1.0 : 0.0);
+      // Trigger direto nos buffers do indicador.
+      double buyTrigger = (signalInputsValid && wavePrev <= upPrev && waveCurr > upCurr ? 1.0 : 0.0);
+      double sellTrigger = (signalInputsValid && wavePrev >= dnPrev && waveCurr < dnCurr ? 1.0 : 0.0);
       double waveAboveUpper = (waveCurr > upCurr ? 1.0 : 0.0);
       double waveBelowLower = (waveCurr < dnCurr ? 1.0 : 0.0);
       double waveAboveZero = (waveCurr > zeroCurr ? 1.0 : 0.0);
@@ -644,7 +640,7 @@ public:
 
       snapshot.Upsert("feed.fast", waveCurr, wavePrev, waveValid);
       snapshot.Upsert("feed.slow", midCurr, midPrev, midValid);
-      snapshot.Upsert("const.zero", zeroCurr, zeroPrev, zeroValid);
+      snapshot.Upsert("const.zero", 0.0, 0.0, true);
 
       snapshot.Upsert("forecast.wave", waveCurr, wavePrev, waveValid);
       snapshot.Upsert("forecast.feed2", feed2Curr, feed2Prev, feed2Valid);
@@ -663,8 +659,6 @@ public:
       snapshot.Upsert("closescale.wave_below_lower", waveBelowLower, waveBelowLower, signalInputsValid);
       snapshot.Upsert("closescale.wave_above_zero", waveAboveZero, waveAboveZero, waveValid);
       snapshot.Upsert("closescale.wave_below_zero", waveBelowZero, waveBelowZero, waveValid);
-      snapshot.Upsert("closescale.cross_pack_up", buyTrigger, buyTrigger, signalInputsValid);
-      snapshot.Upsert("closescale.cross_pack_dn", sellTrigger, sellTrigger, signalInputsValid);
       snapshot.Upsert("forecast.band_top", bandTopCurr, bandTopPrev, signalInputsValid);
       snapshot.Upsert("forecast.band_bot", bandBotCurr, bandBotPrev, signalInputsValid);
       snapshot.Upsert("forecast.wave_rising", waveRising, waveRising, waveValid);
@@ -676,7 +670,7 @@ public:
       snapshot.Upsert("forecast.read_fallback_used", 0.0, 0.0, true);
       snapshot.Upsert("signal.bias_hint_side", (waveCurr > 0.0 ? 1.0 : (waveCurr < 0.0 ? -1.0 : 0.0)),
                       (wavePrev > 0.0 ? 1.0 : (wavePrev < 0.0 ? -1.0 : 0.0)), waveValid);
-      snapshot.Upsert("signal.bias_hint_strength", (crossPackUp || crossPackDn ? 1.0 : 0.0), (crossPackUp || crossPackDn ? 1.0 : 0.0), signalInputsValid);
+      snapshot.Upsert("signal.bias_hint_strength", ((buyTrigger > 0.5 || sellTrigger > 0.5) ? 1.0 : 0.0), ((buyTrigger > 0.5 || sellTrigger > 0.5) ? 1.0 : 0.0), signalInputsValid);
 
       // Campos derivados por mapeamento para preco (nao bloqueiam o modulo).
       snapshot.Upsert("forecast.ma_long_price", 0.0, 0.0, false);

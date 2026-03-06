@@ -79,11 +79,11 @@ public:
       rule.Clear();
       rule.ruleId = Id();
 
-      // Regra base solicitada:
-      // BUY: Feed1 atravessa o pacote BB completo de baixo para cima (3 linhas).
-      // SELL: Feed1 atravessa o pacote BB completo de cima para baixo (3 linhas).
-      rule.AddBuy("closescale.cross_pack_up", COND_GT, "const.zero");
-      rule.AddSell("closescale.cross_pack_dn", COND_GT, "const.zero");
+      // Regra base direta nos buffers publicados do indicador (ind1_buf*):
+      // BUY: ind1_buf0 cruza ind1_buf2 de baixo para cima.
+      // SELL: ind1_buf0 cruza ind1_buf4 de cima para baixo.
+      rule.AddBuy("ind1_buf0", COND_CROSS_UP, "ind1_buf2");
+      rule.AddSell("ind1_buf0", COND_CROSS_DOWN, "ind1_buf4");
 
       // Blocos opcionais de autorizacao (fase incremental).
       if(m_useEffortAuth)
@@ -133,43 +133,35 @@ public:
       st.activeBaskets = activeBaskets;
       st.basketNetPnl = basketNetPnl;
 
-      SnapshotPair(snapshot, "forecast.wave", st.waveCurr, st.wavePrev);
-      SnapshotPair(snapshot, "forecast.band_up", st.bandUpCurr, st.bandUpPrev);
-      SnapshotPair(snapshot, "forecast.band_mid", st.bandMidCurr, st.bandMidPrev);
-      SnapshotPair(snapshot, "forecast.band_dn", st.bandDnCurr, st.bandDnPrev);
-      SnapshotPair(snapshot, "forecast.feed2", st.feed2Curr, st.feed2Prev);
-      SnapshotPair(snapshot, "const.zero", st.zeroCurr, st.zeroPrev);
+      SnapshotPair(snapshot, "ind1_buf0", st.waveCurr, st.wavePrev);
+      SnapshotPair(snapshot, "ind1_buf2", st.bandUpCurr, st.bandUpPrev);
+      SnapshotPair(snapshot, "ind1_buf3", st.bandMidCurr, st.bandMidPrev);
+      SnapshotPair(snapshot, "ind1_buf4", st.bandDnCurr, st.bandDnPrev);
+      SnapshotPair(snapshot, "ind1_buf1", st.feed2Curr, st.feed2Prev);
+      SnapshotPair(snapshot, "ind1_buf5", st.zeroCurr, st.zeroPrev);
 
       const bool okWavePrev = IsUsableBufferValue(st.wavePrev);
       const bool okUpCurr = IsUsableBufferValue(st.bandUpCurr);
       const bool okUpPrev = IsUsableBufferValue(st.bandUpPrev);
       const bool okDnCurr = IsUsableBufferValue(st.bandDnCurr);
       const bool okDnPrev = IsUsableBufferValue(st.bandDnPrev);
-      const bool okBandPackCurr = (okUpCurr && okDnCurr && IsUsableBufferValue(st.bandMidCurr));
-      const bool okBandPackPrev = (okUpPrev && okDnPrev && IsUsableBufferValue(st.bandMidPrev));
+      st.bandTopCurr = (okUpCurr ? st.bandUpCurr : 0.0);
+      st.bandTopPrev = (okUpPrev ? st.bandUpPrev : 0.0);
+      st.bandBotCurr = (okDnCurr ? st.bandDnCurr : 0.0);
+      st.bandBotPrev = (okDnPrev ? st.bandDnPrev : 0.0);
 
-      st.bandTopCurr = (okBandPackCurr ? MathMax(st.bandUpCurr, MathMax(st.bandMidCurr, st.bandDnCurr)) : 0.0);
-      st.bandTopPrev = (okBandPackPrev ? MathMax(st.bandUpPrev, MathMax(st.bandMidPrev, st.bandDnPrev)) : 0.0);
-      st.bandBotCurr = (okBandPackCurr ? MathMin(st.bandUpCurr, MathMin(st.bandMidCurr, st.bandDnCurr)) : 0.0);
-      st.bandBotPrev = (okBandPackPrev ? MathMin(st.bandUpPrev, MathMin(st.bandMidPrev, st.bandDnPrev)) : 0.0);
+      st.condBuyCross = (okWavePrev && okUpPrev && okUpCurr && st.wavePrev <= st.bandUpPrev && st.waveCurr > st.bandUpCurr);
+      st.condSellCross = (okWavePrev && okDnPrev && okDnCurr && st.wavePrev >= st.bandDnPrev && st.waveCurr < st.bandDnCurr);
 
-      double cross3BuyCurr = 0.0, cross3BuyPrev = 0.0;
-      double cross3SellCurr = 0.0, cross3SellPrev = 0.0;
-      bool cross3BuyOk = snapshot.Get("closescale.cross_pack_up", cross3BuyCurr, cross3BuyPrev);
-      bool cross3SellOk = snapshot.Get("closescale.cross_pack_dn", cross3SellCurr, cross3SellPrev);
-
-      st.condBuyCross = (cross3BuyOk && cross3BuyCurr > 0.5);
-      st.condSellCross = (cross3SellOk && cross3SellCurr > 0.5);
-
-      st.condBuyZero = (okWavePrev && okBandPackPrev && st.wavePrev <= st.bandBotPrev);   // BUY start abaixo do pacote
-      st.condSellZero = (okWavePrev && okBandPackPrev && st.wavePrev >= st.bandTopPrev);  // SELL start acima do pacote
+      st.condBuyZero = (okWavePrev && okUpPrev && st.wavePrev <= st.bandUpPrev);   // BUY start abaixo da UP
+      st.condSellZero = (okWavePrev && okDnPrev && st.wavePrev >= st.bandDnPrev);  // SELL start acima da BOTTOM
       st.condBuyEffort = (st.effortBuyAuth > 0.5);
       st.condSellEffort = (st.effortSellAuth > 0.5);
       st.condBuyMfi = (st.mfiBuyAuth > 0.5);
       st.condSellMfi = (st.mfiSellAuth > 0.5);
 
-      st.buyExpr = "buy : (ind1_buf0_prev <= band_bot_prev) && (ind1_buf0 > band_top)";
-      st.sellExpr = "sell: (ind1_buf0_prev >= band_top_prev) && (ind1_buf0 < band_bot)";
+      st.buyExpr = "buy : (ind1_buf0_prev <= ind1_buf2_prev) && (ind1_buf0 > ind1_buf2)";
+      st.sellExpr = "sell: (ind1_buf0_prev >= ind1_buf4_prev) && (ind1_buf0 < ind1_buf4)";
       if(useEffortAuth)
       {
          st.buyExpr += " && ind2_buf0 > ind2_buf1";
@@ -185,15 +177,13 @@ public:
       st.sellCondTrace = decision.sellTrace;
       st.signalBuffersTrace = decision.buffersTrace;
       st.indicatorBuffersLine1 = StringFormat("ind1_buf0(wave)=%s | ind1_buf2(up)=%s | ind1_buf3(mid)=%s | ind1_buf4(dn)=%s",
-                                              SnapshotPairOrEmpty(snapshot, "forecast.wave"),
-                                              SnapshotPairOrEmpty(snapshot, "forecast.band_up"),
-                                              SnapshotPairOrEmpty(snapshot, "forecast.band_mid"),
-                                              SnapshotPairOrEmpty(snapshot, "forecast.band_dn"));
-      st.indicatorBuffersLine2 = StringFormat("cross3 B=%s S=%s | start B(prev<=bot)=%s S(prev>=top)=%s",
-                                              SnapshotPairOrEmpty(snapshot, "closescale.cross_pack_up", 0),
-                                              SnapshotPairOrEmpty(snapshot, "closescale.cross_pack_dn", 0),
-                                              (st.condBuyZero ? "true" : "false"),
-                                              (st.condSellZero ? "true" : "false"));
+                                              SnapshotPairOrEmpty(snapshot, "ind1_buf0"),
+                                              SnapshotPairOrEmpty(snapshot, "ind1_buf2"),
+                                              SnapshotPairOrEmpty(snapshot, "ind1_buf3"),
+                                              SnapshotPairOrEmpty(snapshot, "ind1_buf4"));
+      st.indicatorBuffersLine2 = StringFormat("trigger B(prev<=up && curr>up)=%s S(prev>=dn && curr<dn)=%s",
+                                              (st.condBuyCross ? "true" : "false"),
+                                              (st.condSellCross ? "true" : "false"));
       if(useEffortAuth || useMfiAuth)
       {
          st.indicatorBuffersLine2 += StringFormat(" | effort B=%s S=%s | mfi B=%s S=%s",

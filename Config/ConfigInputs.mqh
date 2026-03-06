@@ -49,6 +49,9 @@ input group "Strategy Auth (optional)"
 input bool InpAuthUseEffort = false;
 input bool InpAuthUseMfi = false;
 
+input group "Bus DLL (obrigatorio)"
+input string InpBusSession = "CSM_DEFAULT";
+
 input group "View"
 input bool InpViewChart = true;
 input bool InpViewTerminal = true;

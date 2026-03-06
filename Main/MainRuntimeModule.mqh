@@ -6,7 +6,6 @@
 #include "..\\Contracts\\Interfaces.mqh"
 #include "..\\Indicators\\IndicatorModule.mqh"
 #include "..\\Strategies\\StrategyModule.mqh"
-#include "..\\EntrySignal\\EntrySignalModule.mqh"
 #include "..\\OrderManager\\OrderManagerModule.mqh"
 #include "..\\Policies\\BlockAuthorityModule.mqh"
 #include "..\\Exec\\ExecModule.mqh"
@@ -19,7 +18,6 @@ private:
    CConfigModule *m_cfg;
    CIndicatorModule *m_indicators;
    CStrategyModule *m_strategy;
-   CEntrySignalModule *m_entrySignal;
    COrderManagerModule *m_orderMgr;
    CBlockAuthorityModule m_block;
    CExecModule *m_exec;
@@ -35,7 +33,6 @@ private:
       return(m_cfg != NULL &&
              m_indicators != NULL &&
              m_strategy != NULL &&
-             m_entrySignal != NULL &&
              m_orderMgr != NULL &&
              m_exec != NULL &&
              m_view != NULL &&
@@ -79,7 +76,6 @@ public:
       m_cfg = NULL;
       m_indicators = NULL;
       m_strategy = NULL;
-      m_entrySignal = NULL;
       m_orderMgr = NULL;
       m_exec = NULL;
       m_view = NULL;
@@ -93,7 +89,6 @@ public:
    void Bind(CConfigModule &cfg,
              CIndicatorModule &indicators,
              CStrategyModule &strategy,
-             CEntrySignalModule &entrySignal,
              COrderManagerModule &orderMgr,
              CExecModule &exec,
              CViewModule &view,
@@ -106,7 +101,6 @@ public:
       m_cfg = &cfg;
       m_indicators = &indicators;
       m_strategy = &strategy;
-      m_entrySignal = &entrySignal;
       m_orderMgr = &orderMgr;
       m_exec = &exec;
       m_view = &view;
@@ -124,7 +118,13 @@ public:
          return;
 
       string err = "";
+      datetime bar0 = iTime(_Symbol, _Period, 0);
+      if(bar0 <= 0)
+         bar0 = TimeCurrent();
+      m_snapshot.BeginCycle(bar0, _Symbol, (int)_Period);
+      m_snapshot.SetWriterModule("main");
       m_snapshot.Clear();
+      m_snapshot.Report("main", "tick.begin", 0, "ok");
 
       string runGateErr = "";
       m_block.CanRunTick(m_verify.ModulesReady(), m_verify.ModuleCheckMessage(), runGateErr);
@@ -135,12 +135,23 @@ public:
       decision.sellArmed = false;
       decision.reason = "";
 
+      m_snapshot.SetWriterModule("indicators");
       bool indicatorsOk = m_indicators.Update(*m_snapshot, err);
+      m_snapshot.Report("indicators", "update", (indicatorsOk ? 0 : 1001), (indicatorsOk ? "ok" : err));
 
-      m_entrySignal.Evaluate(*m_snapshot, *m_rule, decision);
+      m_snapshot.SetWriterModule("strategy");
+      m_strategy.EvaluateSignal(*m_snapshot, *m_rule, decision);
+      m_snapshot.Report("strategy", "evaluate_rule", 0, decision.reason);
       if(!indicatorsOk && decision.reason == "")
          decision.reason = StringFormat("indicadores sem leitura valida: %s", err);
+
+      m_snapshot.SetWriterModule("strategy");
       m_strategy.ApplyDecisionSnapshot(*m_snapshot, decision);
+      m_snapshot.Report("strategy",
+                        "apply_snapshot",
+                        0,
+                        (decision.signal == SIGNAL_BUY ? "BUY" : (decision.signal == SIGNAL_SELL ? "SELL" : "NONE")));
+      m_snapshot.SetWriterModule("main");
 
       bool manageGateBlocked = false;
       string manageGateErr = "";
@@ -310,6 +321,8 @@ public:
                                        m_viewState);
 
       m_view.Publish(m_viewState);
+      m_snapshot.Report("main", "tick.end", 0, localBlockReason);
+      m_snapshot.EndCycle();
    }
 
    void OnTradeTransactionStep(const MqlTradeTransaction &trans)

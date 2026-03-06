@@ -106,6 +106,15 @@ private:
       return(removed);
    }
 
+   int RemoveAllRegisteredIndicators(const long chartId,
+                                     const CIndicatorModule &indicators) const
+   {
+      string hints[];
+      if(!indicators.GetRegistryAttachHints(hints))
+         return(0);
+      return(RemoveByHints(chartId, hints));
+   }
+
    bool FindIndicatorNameByHandle(const long chartId,
                                   const int handle,
                                   string &outName) const
@@ -218,11 +227,6 @@ public:
                                       st.sellSignals), clrWhite, 10);
       y += dy;
 
-      SetLabel("L" + IntegerToString(row++), y, st.buyExpr, (st.buyArmed ? clrLime : clrSilver), 9);
-      y += dy;
-      SetLabel("L" + IntegerToString(row++), y, st.sellExpr, (st.sellArmed ? clrTomato : clrSilver), 9);
-      y += dy;
-
       SetLabel("L" + IntegerToString(row++), y, StringFormat("ind1_buf0 (BridgeFeed1)   = %s", PairText(st.waveCurr, st.wavePrev, 6)), clrDeepSkyBlue, 9);
       y += dy;
       SetLabel("L" + IntegerToString(row++), y, StringFormat("ind1_buf1 (BridgeFeed2)   = %s", PairText(st.feed2Curr, st.feed2Prev, 6)), clrDeepSkyBlue, 9);
@@ -235,18 +239,9 @@ public:
       y += dy;
       SetLabel("L" + IntegerToString(row++), y, StringFormat("ind1_buf5 (BridgeZero)    = %s", PairText(st.zeroCurr, st.zeroPrev, 6)), clrDeepSkyBlue, 9);
       y += dy;
-      SetLabel("L" + IntegerToString(row++), y, StringFormat("band_top (max 2|3|4)      = %s", PairText(st.bandTopCurr, st.bandTopPrev, 6)), clrDeepSkyBlue, 9);
+      SetLabel("L" + IntegerToString(row++), y, StringFormat("buy.trigger_up_cross    (prev<=bb_up_prev && curr>bb_up) = %s", BoolText(st.condBuyCross)), BoolColor(st.condBuyCross), 9);
       y += dy;
-      SetLabel("L" + IntegerToString(row++), y, StringFormat("band_bot (min 2|3|4)      = %s", PairText(st.bandBotCurr, st.bandBotPrev, 6)), clrDeepSkyBlue, 9);
-      y += dy;
-
-      SetLabel("L" + IntegerToString(row++), y, StringFormat("buy.cross3 (prev<=band_bot && curr>band_top) = %s", BoolText(st.condBuyCross)), BoolColor(st.condBuyCross), 9);
-      y += dy;
-      SetLabel("L" + IntegerToString(row++), y, StringFormat("buy.start (ind1_buf0_prev <= band_bot_prev) = %s", BoolText(st.condBuyZero)), BoolColor(st.condBuyZero), 9);
-      y += dy;
-      SetLabel("L" + IntegerToString(row++), y, StringFormat("sell.cross3(prev>=band_top && curr<band_bot) = %s", BoolText(st.condSellCross)), BoolColor(st.condSellCross), 9);
-      y += dy;
-      SetLabel("L" + IntegerToString(row++), y, StringFormat("sell.start(ind1_buf0_prev >= band_top_prev) = %s", BoolText(st.condSellZero)), BoolColor(st.condSellZero), 9);
+      SetLabel("L" + IntegerToString(row++), y, StringFormat("sell.trigger_dn_cross   (prev>=bb_dn_prev && curr<bb_dn) = %s", BoolText(st.condSellCross)), BoolColor(st.condSellCross), 9);
       y += dy;
 
       if(st.useEffortAuth)
@@ -281,7 +276,23 @@ public:
       err = "";
       bool allOk = true;
 
+      // Sempre limpa indicadores registrados para evitar sobras quando a lista
+      // de indicadores selecionados muda entre execucoes.
+      RemoveAllRegisteredIndicators(chartId, indicators);
+
+      int enabledSlots[];
+      ArrayResize(enabledSlots, 0);
+      for(int s = 0; s < ArraySize(attachSlots); s++)
+      {
+         if(!attachSlots[s])
+            continue;
+         int nSlots = ArraySize(enabledSlots);
+         ArrayResize(enabledSlots, nSlots + 1);
+         enabledSlots[nSlots] = s + 1; // subwindow absoluto (1..N)
+      }
+
       int total = indicators.Count();
+      int slotCursor = 0;
       for(int i = 0; i < total; i++)
       {
          string id = "";
@@ -292,7 +303,7 @@ public:
 
          RemoveByHints(chartId, hints);
 
-         if(i < ArraySize(attachSlots) && !attachSlots[i])
+         if(slotCursor >= ArraySize(enabledSlots))
             continue;
 
          if(handle == INVALID_HANDLE)
@@ -306,7 +317,7 @@ public:
          }
 
          int windows = (int)ChartGetInteger(chartId, CHART_WINDOWS_TOTAL);
-         int targetSubwindow = i + 1;
+         int targetSubwindow = enabledSlots[slotCursor++];
          if(targetSubwindow < 1 || targetSubwindow > windows)
             targetSubwindow = windows;
 
@@ -332,18 +343,7 @@ public:
    int DetachIndicators(const long chartId,
                         const CIndicatorModule &indicators) const
    {
-      int removed = 0;
-      int total = indicators.Count();
-      for(int i = 0; i < total; i++)
-      {
-         string id = "";
-         int handle = INVALID_HANDLE;
-         string hints[];
-         if(!indicators.GetChartAttachMeta(i, id, handle, hints))
-            continue;
-         removed += RemoveByHints(chartId, hints);
-      }
-      return(removed);
+      return(RemoveAllRegisteredIndicators(chartId, indicators));
    }
 
    void Clear()
